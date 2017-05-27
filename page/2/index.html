@@ -278,7 +278,7 @@
   
 
   <article class="post post-type-normal " itemscope itemtype="http://schema.org/Article">
-    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2017/05/27/JavaScript深入之执行上下文栈/">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2017/05/27/JavaScript深入之执行上下文/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="name" content="Bosn">
@@ -300,8 +300,8 @@
             
               
                 
-                <a class="post-title-link" href="/2017/05/27/JavaScript深入之执行上下文栈/" itemprop="url">
-                  未命名
+                <a class="post-title-link" href="/2017/05/27/JavaScript深入之执行上下文/" itemprop="url">
+                  JavaScript深入之执行上下文
                 </a>
               
             
@@ -355,8 +355,194 @@
       
         
           
-            <p>title:JavaScript深入之执行上下文栈</p>
-<blockquote>
+            <blockquote>
+<p>JavaScript深入系列第七篇，结合之前所讲的四篇文章，以权威指南的demo为例，具体讲解当函数执行的时候，执行上下文栈、变量对象、作用域链是如何变化的。</p>
+</blockquote>
+<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>在<a href="https://github.com/mqyqingfeng/Blog/issues/4" target="_blank" rel="external">《JavaScript深入之执行上下文栈》</a>中讲到，当 JavaScript 代码执行一段可执行代码(executable code)时，会创建对应的执行上下文(execution context)。</p>
+<p>对于每个执行上下文，都有三个重要属性：</p>
+<ul>
+<li>变量对象(Variable object，VO)</li>
+<li>作用域链(Scope chain)</li>
+<li>this</li>
+</ul>
+<p>然后分别在<a href="https://github.com/mqyqingfeng/Blog/issues/5" target="_blank" rel="external">《JavaScript深入之变量对象》</a>、<a href="https://github.com/mqyqingfeng/Blog/issues/6" target="_blank" rel="external">《JavaScript深入之作用域链》</a>、<a href="https://github.com/mqyqingfeng/Blog/issues/7" target="_blank" rel="external">《JavaScript深入之从ECMAScript规范解读this》</a>中讲解了这三个属性。</p>
+<p>阅读本文前，如果对以上的概念不是很清楚，希望先阅读这些文章。</p>
+<p>因为，这一篇，我们会结合着所有内容，讲讲执行上下文的具体处理过程。</p>
+<h2 id="思考题"><a href="#思考题" class="headerlink" title="思考题"></a>思考题</h2><p>在<a href="https://github.com/mqyqingfeng/Blog/issues/3" target="_blank" rel="external">《JavaScript深入之词法作用域和动态作用域》</a>中，提出这样一道思考题：</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">var</span> scope = <span class="string">"global scope"</span>;</div><div class="line"><span class="function"><span class="keyword">function</span> <span class="title">checkscope</span>(<span class="params"></span>)</span>&#123;</div><div class="line">    <span class="keyword">var</span> scope = <span class="string">"local scope"</span>;</div><div class="line">    <span class="function"><span class="keyword">function</span> <span class="title">f</span>(<span class="params"></span>)</span>&#123;</div><div class="line">        <span class="keyword">return</span> scope;</div><div class="line">    &#125;</div><div class="line">    <span class="keyword">return</span> f();</div><div class="line">&#125;</div><div class="line">checkscope();</div></pre></td></tr></table></figure>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">var</span> scope = <span class="string">"global scope"</span>;</div><div class="line"><span class="function"><span class="keyword">function</span> <span class="title">checkscope</span>(<span class="params"></span>)</span>&#123;</div><div class="line">    <span class="keyword">var</span> scope = <span class="string">"local scope"</span>;</div><div class="line">    <span class="function"><span class="keyword">function</span> <span class="title">f</span>(<span class="params"></span>)</span>&#123;</div><div class="line">        <span class="keyword">return</span> scope;</div><div class="line">    &#125;</div><div class="line">    <span class="keyword">return</span> f;</div><div class="line">&#125;</div><div class="line">checkscope()();</div></pre></td></tr></table></figure>
+<p>两段代码都会打印’local scope’。虽然两段代码执行的结果一样，但是两段代码究竟有哪些不同呢？</p>
+<p>紧接着就在下一篇<a href="https://github.com/mqyqingfeng/Blog/issues/4" target="_blank" rel="external">《JavaScript深入之执行上下文栈》</a>中，讲到了两者的区别在于执行上下文栈的变化不一样，然而，如果是这样笼统的回答，依然显得不够详细，本篇就会详细的解析执行上下文栈和执行上下文的具体变化过程。</p>
+<h2 id="具体执行分析"><a href="#具体执行分析" class="headerlink" title="具体执行分析"></a>具体执行分析</h2><p>我们分析第一段代码：</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">var</span> scope = <span class="string">"global scope"</span>;</div><div class="line"><span class="function"><span class="keyword">function</span> <span class="title">checkscope</span>(<span class="params"></span>)</span>&#123;</div><div class="line">    <span class="keyword">var</span> scope = <span class="string">"local scope"</span>;</div><div class="line">    <span class="function"><span class="keyword">function</span> <span class="title">f</span>(<span class="params"></span>)</span>&#123;</div><div class="line">        <span class="keyword">return</span> scope;</div><div class="line">    &#125;</div><div class="line">    <span class="keyword">return</span> f();</div><div class="line">&#125;</div><div class="line">checkscope();</div></pre></td></tr></table></figure>
+<p>执行过程如下：</p>
+<p>1.执行全局代码，创建全局执行上下文，全局上下文被压入执行上下文栈</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div></pre></td><td class="code"><pre><div class="line">ECStack = [</div><div class="line">    globalContext</div><div class="line">];</div></pre></td></tr></table></figure>
+<p>2.全局上下文初始化</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div></pre></td><td class="code"><pre><div class="line">globalContext = &#123;</div><div class="line">    <span class="attr">VO</span>: [global, scope, checkscope],</div><div class="line">    <span class="attr">Scope</span>: [globalContext.VO],</div><div class="line">    <span class="attr">this</span>: globalContext.VO</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>2.初始化的同时，checkscope 函数被创建，保存作用域链到函数的内部属性[[scope]]</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div></pre></td><td class="code"><pre><div class="line">checkscope.[[scope]] = [</div><div class="line">  globalContext.VO</div><div class="line">];</div></pre></td></tr></table></figure>
+<p>3.执行 checkscope 函数，创建 checkscope 函数执行上下文，checkscope 函数执行上下文被压入执行上下文栈</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div></pre></td><td class="code"><pre><div class="line">ECStack = [</div><div class="line">    checkscopeContext,</div><div class="line">    globalContext</div><div class="line">];</div></pre></td></tr></table></figure>
+<p>4.checkscope 函数执行上下文初始化：</p>
+<ol>
+<li>复制函数 [[scope]] 属性创建作用域链，</li>
+<li>用 arguments 创建活动对象，</li>
+<li>初始化活动对象，即加入形参、函数声明、变量声明，</li>
+<li>将活动对象压入 checkscope 作用域链顶端。</li>
+</ol>
+<p>同时 f 函数被创建，保存作用域链到 f 函数的内部属性[[scope]]</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div></pre></td><td class="code"><pre><div class="line">checkscopeContext = &#123;</div><div class="line">    <span class="attr">AO</span>: &#123;</div><div class="line">        <span class="attr">arguments</span>: &#123;</div><div class="line">            <span class="attr">length</span>: <span class="number">0</span></div><div class="line">        &#125;,</div><div class="line">        <span class="attr">scope</span>: <span class="literal">undefined</span>,</div><div class="line">        <span class="attr">f</span>: reference to <span class="function"><span class="keyword">function</span> <span class="title">f</span>(<span class="params"></span>)</span>&#123;&#125;</div><div class="line">    &#125;,</div><div class="line">    <span class="attr">Scope</span>: [AO, globalContext.VO],</div><div class="line">    <span class="attr">this</span>: <span class="literal">undefined</span></div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>5.执行 f 函数，创建 f 函数执行上下文，f 函数执行上下文被压入执行上下文栈</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div></pre></td><td class="code"><pre><div class="line">ECStack = [</div><div class="line">    fContext,</div><div class="line">    checkscopeContext,</div><div class="line">    globalContext</div><div class="line">];</div></pre></td></tr></table></figure>
+<p>6.f 函数执行上下文初始化, 以下跟第 4 步相同：</p>
+<ol>
+<li>复制函数 [[scope]] 属性创建作用域链</li>
+<li>用 arguments 创建活动对象</li>
+<li>初始化活动对象，即加入形参、函数声明、变量声明</li>
+<li>将活动对象压入 f 作用域链顶端</li>
+</ol>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div></pre></td><td class="code"><pre><div class="line">fContext = &#123;</div><div class="line">    <span class="attr">AO</span>: &#123;</div><div class="line">        <span class="attr">arguments</span>: &#123;</div><div class="line">            <span class="attr">length</span>: <span class="number">0</span></div><div class="line">        &#125;</div><div class="line">    &#125;,</div><div class="line">    <span class="attr">Scope</span>: [AO, checkscopeContext.AO, globalContext.VO],</div><div class="line">    <span class="attr">this</span>: <span class="literal">undefined</span></div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>7.f 函数执行，沿着作用域链查找 scope 值，返回 scope 值</p>
+<p>8.f 函数执行完毕，f 函数上下文从执行上下文栈中弹出</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div></pre></td><td class="code"><pre><div class="line">ECStack = [</div><div class="line">    checkscopeContext,</div><div class="line">    globalContext</div><div class="line">];</div></pre></td></tr></table></figure>
+<p>9.checkscope 函数执行完毕，checkscope 执行上下文从执行上下文栈中弹出</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div></pre></td><td class="code"><pre><div class="line">ECStack = [</div><div class="line">    globalContext</div><div class="line">];</div></pre></td></tr></table></figure>
+<p>第二段代码就留给大家去尝试模拟它的执行过程。</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">var</span> scope = <span class="string">"global scope"</span>;</div><div class="line"><span class="function"><span class="keyword">function</span> <span class="title">checkscope</span>(<span class="params"></span>)</span>&#123;</div><div class="line">    <span class="keyword">var</span> scope = <span class="string">"local scope"</span>;</div><div class="line">    <span class="function"><span class="keyword">function</span> <span class="title">f</span>(<span class="params"></span>)</span>&#123;</div><div class="line">        <span class="keyword">return</span> scope;</div><div class="line">    &#125;</div><div class="line">    <span class="keyword">return</span> f;</div><div class="line">&#125;</div><div class="line">checkscope()();</div></pre></td></tr></table></figure>
+<p>不过，在下一篇《JavaScript深入之闭包》中也会提及这段代码的执行过程。</p>
+<h2 id="下一篇文章"><a href="#下一篇文章" class="headerlink" title="下一篇文章"></a>下一篇文章</h2><p><a href="https://github.com/mqyqingfeng/Blog/issues/9" target="_blank" rel="external">《JavaScript深入之闭包》</a></p>
+<h2 id="相关链接"><a href="#相关链接" class="headerlink" title="相关链接"></a>相关链接</h2><p><a href="https://github.com/mqyqingfeng/Blog/issues/3" target="_blank" rel="external">《JavaScript深入之词法作用域和动态作用域》</a></p>
+<p><a href="https://github.com/mqyqingfeng/Blog/issues/4" target="_blank" rel="external">《JavaScript深入之执行上下文栈》</a></p>
+<p><a href="https://github.com/mqyqingfeng/Blog/issues/5" target="_blank" rel="external">《JavaScript深入之变量对象》</a></p>
+<p><a href="https://github.com/mqyqingfeng/Blog/issues/6" target="_blank" rel="external">《JavaScript深入之作用域链》</a></p>
+<p><a href="https://github.com/mqyqingfeng/Blog/issues/7" target="_blank" rel="external">《JavaScript深入之从ECMAScript规范解读this》</a></p>
+<h2 id="重要参考"><a href="#重要参考" class="headerlink" title="重要参考"></a>重要参考</h2><p><a href="https://github.com/kuitos/kuitos.github.io/issues/18" target="_blank" rel="external">《一道js面试题引发的思考》</a></p>
+<p>本文写的太好，给了我很多启发。感激不尽！</p>
+<h2 id="深入系列"><a href="#深入系列" class="headerlink" title="深入系列"></a>深入系列</h2><p>JavaScript深入系列目录地址：<a href="https://github.com/mqyqingfeng/Blog" target="_blank" rel="external">https://github.com/mqyqingfeng/Blog</a>。</p>
+<p>JavaScript深入系列预计写十五篇左右，旨在帮大家捋顺JavaScript底层知识，重点讲解如原型、作用域、执行上下文、变量对象、this、闭包、按值传递、call、apply、bind、new、继承等难点概念。</p>
+<p>如果有错误或者不严谨的地方，请务必给予指正，十分感谢。如果喜欢或者有所启发，欢迎star，对作者也是一种鼓励。</p>
+
+          
+        
+      
+    </div>
+
+    <div>
+      
+    </div>
+
+    <div>
+      
+    </div>
+
+    <div>
+      
+    </div>
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </article>
+
+
+    
+      
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal " itemscope itemtype="http://schema.org/Article">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2017/05/27/JavaScript深入之执行上下文栈/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Bosn">
+      <meta itemprop="description" content="">
+      <meta itemprop="image" content="/images/html5.jpg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Bosn's Notes">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+            
+            
+              
+                
+                <a class="post-title-link" href="/2017/05/27/JavaScript深入之执行上下文栈/" itemprop="url">
+                  JavaScript深入之执行上下文栈
+                </a>
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2017-05-27T21:01:58+08:00">
+                2017-05-27
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          
+            <blockquote>
 <p>JavaScript深入系列第三篇，讲解执行上下文栈的是如何执行的，也回答了第二篇中的略难的思考题。</p>
 </blockquote>
 <h2 id="顺序执行？"><a href="#顺序执行？" class="headerlink" title="顺序执行？"></a>顺序执行？</h2><p>如果要问到 JavaScript 代码执行顺序的话，想必写过 JavaScript 的开发者都会有个直观的印象，那就是顺序执行，毕竟：</p>
@@ -461,7 +647,7 @@
               
                 
                 <a class="post-title-link" href="/2017/05/27/JavaScript深入之类数组对象与arguments/" itemprop="url">
-                  未命名
+                  JavaScript深入之类数组对象与arguments
                 </a>
               
             
@@ -515,8 +701,7 @@
       
         
           
-            <p>title:JavaScript深入之类数组对象与arguments</p>
-<blockquote>
+            <blockquote>
 <p>JavaScript深入系列第十三篇，讲解类数组对象与对象的相似与差异以及arguments的注意要点</p>
 </blockquote>
 <h2 id="类数组对象"><a href="#类数组对象" class="headerlink" title="类数组对象"></a>类数组对象</h2><p>所谓的类数组对象:</p>
@@ -618,184 +803,6 @@
   
 
   <article class="post post-type-normal " itemscope itemtype="http://schema.org/Article">
-    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2017/05/27/JavaScript深入之继承的多种方式和优缺点/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="name" content="Bosn">
-      <meta itemprop="description" content="">
-      <meta itemprop="image" content="/images/html5.jpg">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="Bosn's Notes">
-    </span>
-
-    
-      <header class="post-header">
-
-        
-        
-          <h1 class="post-title" itemprop="name headline">
-            
-            
-              
-                
-                <a class="post-title-link" href="/2017/05/27/JavaScript深入之继承的多种方式和优缺点/" itemprop="url">
-                  未命名
-                </a>
-              
-            
-          </h1>
-        
-
-        <div class="post-meta">
-          <span class="post-time">
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-calendar-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">发表于</span>
-              
-              <time title="创建于" itemprop="dateCreated datePublished" datetime="2017-05-27T21:01:58+08:00">
-                2017-05-27
-              </time>
-            
-
-            
-
-            
-          </span>
-
-          
-
-          
-            
-          
-
-          
-          
-
-          
-
-          
-
-          
-
-        </div>
-      </header>
-    
-
-
-    <div class="post-body" itemprop="articleBody">
-
-      
-      
-
-      
-        
-          
-            <p>title:JavaScript深入之继承的多种方式和优缺点</p>
-<blockquote>
-<p>JavaScript深入系列第十五篇，讲解JavaScript各种继承方式和优缺点。</p>
-</blockquote>
-<h2 id="写在前面"><a href="#写在前面" class="headerlink" title="写在前面"></a>写在前面</h2><p>本文讲解JavaScript各种继承方式和优缺点。</p>
-<p>但是注意：</p>
-<p>这篇文章更像是笔记，哎，再让我感叹一句：《JavaScript高级程序设计》写得真是太好了！</p>
-<h2 id="1-原型链继承"><a href="#1-原型链继承" class="headerlink" title="1.原型链继承"></a>1.原型链继承</h2><figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">function</span> <span class="title">Parent</span> (<span class="params"></span>) </span>&#123;</div><div class="line">    <span class="keyword">this</span>.name = <span class="string">'kevin'</span>;</div><div class="line">&#125;</div><div class="line"></div><div class="line">Parent.prototype.getName = <span class="function"><span class="keyword">function</span> (<span class="params"></span>) </span>&#123;</div><div class="line">    <span class="built_in">console</span>.log(<span class="keyword">this</span>.name);</div><div class="line">&#125;</div><div class="line"></div><div class="line"><span class="function"><span class="keyword">function</span> <span class="title">Child</span> (<span class="params"></span>) </span>&#123;</div><div class="line"></div><div class="line">&#125;</div><div class="line"></div><div class="line">Child.prototype = <span class="keyword">new</span> Parent();</div><div class="line"></div><div class="line"><span class="keyword">var</span> child1 = <span class="keyword">new</span> Child();</div><div class="line"></div><div class="line"><span class="built_in">console</span>.log(child1.getName()) <span class="comment">// kevin</span></div></pre></td></tr></table></figure>
-<p>问题：</p>
-<p>1.引用类型的属性被所有实例共享，举个例子：</p>
-<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">function</span> <span class="title">Parent</span> (<span class="params"></span>) </span>&#123;</div><div class="line">    <span class="keyword">this</span>.names = [<span class="string">'kevin'</span>, <span class="string">'daisy'</span>];</div><div class="line">&#125;</div><div class="line"></div><div class="line"><span class="function"><span class="keyword">function</span> <span class="title">Child</span> (<span class="params"></span>) </span>&#123;</div><div class="line"></div><div class="line">&#125;</div><div class="line"></div><div class="line">Child.prototype = <span class="keyword">new</span> Parent();</div><div class="line"></div><div class="line"><span class="keyword">var</span> child1 = <span class="keyword">new</span> Child();</div><div class="line"></div><div class="line">child1.names.push(<span class="string">'yayu'</span>);</div><div class="line"></div><div class="line"><span class="built_in">console</span>.log(child1.names); <span class="comment">// ["kevin", "daisy", "yayu"]</span></div><div class="line"></div><div class="line"><span class="keyword">var</span> child2 = <span class="keyword">new</span> Child();</div><div class="line"></div><div class="line"><span class="built_in">console</span>.log(child2.names); <span class="comment">// ["kevin", "daisy", "yayu"]</span></div></pre></td></tr></table></figure>
-<p>2.在创建 Child 的实例时，不能向Parent传参</p>
-<h2 id="2-借用构造函数-经典继承"><a href="#2-借用构造函数-经典继承" class="headerlink" title="2.借用构造函数(经典继承)"></a>2.借用构造函数(经典继承)</h2><figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">function</span> <span class="title">Parent</span> (<span class="params"></span>) </span>&#123;</div><div class="line">    <span class="keyword">this</span>.names = [<span class="string">'kevin'</span>, <span class="string">'daisy'</span>];</div><div class="line">&#125;</div><div class="line"></div><div class="line"><span class="function"><span class="keyword">function</span> <span class="title">Child</span> (<span class="params"></span>) </span>&#123;</div><div class="line">    Parent.call(<span class="keyword">this</span>);</div><div class="line">&#125;</div><div class="line"></div><div class="line"><span class="keyword">var</span> child1 = <span class="keyword">new</span> Child();</div><div class="line"></div><div class="line">child1.names.push(<span class="string">'yayu'</span>);</div><div class="line"></div><div class="line"><span class="built_in">console</span>.log(child1.names); <span class="comment">// ["kevin", "daisy", "yayu"]</span></div><div class="line"></div><div class="line"><span class="keyword">var</span> child2 = <span class="keyword">new</span> Child();</div><div class="line"></div><div class="line"><span class="built_in">console</span>.log(child2.names); <span class="comment">// ["kevin", "daisy"]</span></div></pre></td></tr></table></figure>
-<p>优点：</p>
-<p>1.避免了引用类型的属性被所有实例共享</p>
-<p>2.可以在 Child 中向 Parent 传参</p>
-<p>举个例子：</p>
-<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">function</span> <span class="title">Parent</span> (<span class="params">name</span>) </span>&#123;</div><div class="line">    <span class="keyword">this</span>.name = name;</div><div class="line">&#125;</div><div class="line"></div><div class="line"><span class="function"><span class="keyword">function</span> <span class="title">Child</span> (<span class="params">name</span>) </span>&#123;</div><div class="line">    Parent.call(<span class="keyword">this</span>, name);</div><div class="line">&#125;</div><div class="line"></div><div class="line"><span class="keyword">var</span> child1 = <span class="keyword">new</span> Child(<span class="string">'kevin'</span>);</div><div class="line"></div><div class="line"><span class="built_in">console</span>.log(child1.name); <span class="comment">// kevin</span></div><div class="line"></div><div class="line"><span class="keyword">var</span> child2 = <span class="keyword">new</span> Child(<span class="string">'daisy'</span>);</div><div class="line"></div><div class="line"><span class="built_in">console</span>.log(child2.name); <span class="comment">// daisy</span></div></pre></td></tr></table></figure>
-<p>缺点：</p>
-<p>方法都在构造函数中定义，每次创建实例都会创建一遍方法。</p>
-<h2 id="3-组合继承"><a href="#3-组合继承" class="headerlink" title="3.组合继承"></a>3.组合继承</h2><p>原型链继承和经典继承双剑合璧。</p>
-<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">function</span> <span class="title">Parent</span> (<span class="params">name</span>) </span>&#123;</div><div class="line">    <span class="keyword">this</span>.name = name;</div><div class="line">    <span class="keyword">this</span>.colors = [<span class="string">'red'</span>, <span class="string">'blue'</span>, <span class="string">'green'</span>];</div><div class="line">&#125;</div><div class="line"></div><div class="line">Parent.prototype.getName = <span class="function"><span class="keyword">function</span> (<span class="params"></span>) </span>&#123;</div><div class="line">    <span class="built_in">console</span>.log(<span class="keyword">this</span>.name)</div><div class="line">&#125;</div><div class="line"></div><div class="line"><span class="function"><span class="keyword">function</span> <span class="title">Child</span> (<span class="params">name, age</span>) </span>&#123;</div><div class="line"></div><div class="line">    Parent.call(<span class="keyword">this</span>, name);</div><div class="line">    </div><div class="line">    <span class="keyword">this</span>.age = age;</div><div class="line"></div><div class="line">&#125;</div><div class="line"></div><div class="line">Child.prototype = <span class="keyword">new</span> Parent();</div><div class="line"></div><div class="line"><span class="keyword">var</span> child1 = <span class="keyword">new</span> Child(<span class="string">'kevin'</span>, <span class="string">'18'</span>);</div><div class="line"></div><div class="line">child1.colors.push(<span class="string">'black'</span>);</div><div class="line"></div><div class="line"><span class="built_in">console</span>.log(child1.name); <span class="comment">// kevin</span></div><div class="line"><span class="built_in">console</span>.log(child1.age); <span class="comment">// 18</span></div><div class="line"><span class="built_in">console</span>.log(child1.colors); <span class="comment">// ["red", "blue", "green", "black"]</span></div><div class="line"></div><div class="line"><span class="keyword">var</span> child2 = <span class="keyword">new</span> Child(<span class="string">'daisy'</span>, <span class="string">'20'</span>);</div><div class="line"></div><div class="line"><span class="built_in">console</span>.log(child2.name); <span class="comment">// daisy</span></div><div class="line"><span class="built_in">console</span>.log(child2.age); <span class="comment">// 20</span></div><div class="line"><span class="built_in">console</span>.log(child2.colors); <span class="comment">// ["red", "blue", "green"]</span></div></pre></td></tr></table></figure>
-<p>优点：融合原型链继承和构造函数的优点，是 JavaScript 中最常用的继承模式。</p>
-<h2 id="4-原型式继承"><a href="#4-原型式继承" class="headerlink" title="4.原型式继承"></a>4.原型式继承</h2><figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">function</span> <span class="title">createObj</span>(<span class="params">o</span>) </span>&#123;</div><div class="line">    <span class="function"><span class="keyword">function</span> <span class="title">F</span>(<span class="params"></span>)</span>&#123;&#125;</div><div class="line">    F.prototype = o;</div><div class="line">    <span class="keyword">return</span> <span class="keyword">new</span> F();</div><div class="line">&#125;</div></pre></td></tr></table></figure>
-<p>就是 ES5 Object.create 的模拟实现，将传入的对象作为创建的对象的原型。</p>
-<p>缺点：</p>
-<p>包含引用类型的属性值始终都会共享相应的值，这点跟原型链继承一样。</p>
-<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">var</span> person = &#123;</div><div class="line">    <span class="attr">name</span>: <span class="string">'kevin'</span>,</div><div class="line">    <span class="attr">friends</span>: [<span class="string">'daisy'</span>, <span class="string">'kelly'</span>]</div><div class="line">&#125;</div><div class="line"></div><div class="line"><span class="keyword">var</span> person1 = createObj(person);</div><div class="line"><span class="keyword">var</span> person2 = createObj(person);</div><div class="line"></div><div class="line">person1.name = <span class="string">'person1'</span>;</div><div class="line"><span class="built_in">console</span>.log(person2.name); <span class="comment">// kevin</span></div><div class="line"></div><div class="line">person1.firends.push(<span class="string">'taylor'</span>);</div><div class="line"><span class="built_in">console</span>.log(person2.friends); <span class="comment">// ["daisy", "kelly", "taylor"]</span></div></pre></td></tr></table></figure>
-<p>注意：修改<code>person1.name</code>的值，<code>person2.name</code>的值并未发生改变，并不是因为<code>person1</code>和<code>person2</code>有独立的 name 值，而是因为<code>person1.name = &#39;person1&#39;</code>，给<code>person1</code>添加了 name 值，并非修改了原型上的 name 值。</p>
-<h2 id="5-寄生式继承"><a href="#5-寄生式继承" class="headerlink" title="5. 寄生式继承"></a>5. 寄生式继承</h2><p>创建一个仅用于封装继承过程的函数，该函数在内部以某种形式来做增强对象，最后返回对象。</p>
-<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">function</span> <span class="title">createObj</span> (<span class="params">o</span>) </span>&#123;</div><div class="line">    <span class="keyword">var</span> clone = object.create(o);</div><div class="line">    clone.sayName = <span class="function"><span class="keyword">function</span> (<span class="params"></span>) </span>&#123;</div><div class="line">        <span class="built_in">console</span>.log(<span class="string">'hi'</span>);</div><div class="line">    &#125;</div><div class="line">    <span class="keyword">return</span> clone;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
-<p>缺点：跟借用构造函数模式一样，每次创建对象都会创建一遍方法。</p>
-<h2 id="6-寄生组合式继承"><a href="#6-寄生组合式继承" class="headerlink" title="6. 寄生组合式继承"></a>6. 寄生组合式继承</h2><p>为了方便大家阅读，在这里重复一下组合继承的代码：</p>
-<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">function</span> <span class="title">Parent</span> (<span class="params">name</span>) </span>&#123;</div><div class="line">    <span class="keyword">this</span>.name = name;</div><div class="line">    <span class="keyword">this</span>.colors = [<span class="string">'red'</span>, <span class="string">'blue'</span>, <span class="string">'green'</span>];</div><div class="line">&#125;</div><div class="line"></div><div class="line">Parent.prototype.getName = <span class="function"><span class="keyword">function</span> (<span class="params"></span>) </span>&#123;</div><div class="line">    <span class="built_in">console</span>.log(<span class="keyword">this</span>.name)</div><div class="line">&#125;</div><div class="line"></div><div class="line"><span class="function"><span class="keyword">function</span> <span class="title">Child</span> (<span class="params">name, age</span>) </span>&#123;</div><div class="line">    Parent.call(<span class="keyword">this</span>, name);</div><div class="line">    <span class="keyword">this</span>.age = age;</div><div class="line">&#125;</div><div class="line"></div><div class="line">Child.prototype = <span class="keyword">new</span> Parent();</div><div class="line"></div><div class="line"><span class="keyword">var</span> child1 = <span class="keyword">new</span> Child(<span class="string">'kevin'</span>, <span class="string">'18'</span>);</div><div class="line"></div><div class="line"><span class="built_in">console</span>.log(child1)</div></pre></td></tr></table></figure>
-<p>组合继承最大的缺点是会调用两次父构造函数。</p>
-<p>一次是设置子类型实例的原型的时候：</p>
-<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">Child.prototype = <span class="keyword">new</span> Parent();</div></pre></td></tr></table></figure>
-<p>一次在创建子类型实例的时候：</p>
-<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">var</span> child1 = <span class="keyword">new</span> Child(<span class="string">'kevin'</span>, <span class="string">'18'</span>);</div></pre></td></tr></table></figure>
-<p>回想下 new 的模拟实现，其实在这句中，我们会执行：</p>
-<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">Parent.call(<span class="keyword">this</span>, name);</div></pre></td></tr></table></figure>
-<p>在这里，我们又会调用了一次 Parent 构造函数。</p>
-<p>所以，在这个例子中，如果我们打印 child1 对象，我们会发现 Child.prototype 和 child1 都有一个属性为<code>colors</code>，属性值为<code>[&#39;red&#39;, &#39;blue&#39;, &#39;green&#39;]</code>。</p>
-<p>那么我们该如何精益求精，避免这一次重复调用呢？</p>
-<p>如果我们不使用 Child.prototype = new Parent() ，而是间接的让 Child.prototype 访问到 Parent.prototype 呢？</p>
-<p>看看如何实现：</p>
-<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">function</span> <span class="title">Parent</span> (<span class="params">name</span>) </span>&#123;</div><div class="line">    <span class="keyword">this</span>.name = name;</div><div class="line">    <span class="keyword">this</span>.colors = [<span class="string">'red'</span>, <span class="string">'blue'</span>, <span class="string">'green'</span>];</div><div class="line">&#125;</div><div class="line"></div><div class="line">Parent.prototype.getName = <span class="function"><span class="keyword">function</span> (<span class="params"></span>) </span>&#123;</div><div class="line">    <span class="built_in">console</span>.log(<span class="keyword">this</span>.name)</div><div class="line">&#125;</div><div class="line"></div><div class="line"><span class="function"><span class="keyword">function</span> <span class="title">Child</span> (<span class="params">name, age</span>) </span>&#123;</div><div class="line">    Parent.call(<span class="keyword">this</span>, name);</div><div class="line">    <span class="keyword">this</span>.age = age;</div><div class="line">&#125;</div><div class="line"></div><div class="line"><span class="comment">// 关键的三步</span></div><div class="line"><span class="keyword">var</span> F = <span class="function"><span class="keyword">function</span> (<span class="params"></span>) </span>&#123;&#125;;</div><div class="line"></div><div class="line">F.prototype = Parent.prototype;</div><div class="line"></div><div class="line">Child.prototype = <span class="keyword">new</span> F();</div><div class="line"></div><div class="line"></div><div class="line"><span class="keyword">var</span> child1 = <span class="keyword">new</span> Child(<span class="string">'kevin'</span>, <span class="string">'18'</span>);</div><div class="line"></div><div class="line"><span class="built_in">console</span>.log(child1);</div></pre></td></tr></table></figure>
-<p>最后我们封装一下这个继承方法：</p>
-<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">function</span> <span class="title">object</span>(<span class="params">o</span>) </span>&#123;</div><div class="line">    <span class="function"><span class="keyword">function</span> <span class="title">F</span>(<span class="params"></span>) </span>&#123;&#125;</div><div class="line">    F.prototype = o;</div><div class="line">    <span class="keyword">return</span> <span class="keyword">new</span> F();</div><div class="line">&#125;</div><div class="line"></div><div class="line"><span class="function"><span class="keyword">function</span> <span class="title">prototype</span>(<span class="params">child, parent</span>) </span>&#123;</div><div class="line">    <span class="keyword">var</span> prototype = object(parent.prototype);</div><div class="line">    prototype.constructor = child;</div><div class="line">    child.prototype = prototype;</div><div class="line">&#125;</div><div class="line"></div><div class="line"><span class="comment">// 当我们使用的时候：</span></div><div class="line">prototype(Child, Parent);</div></pre></td></tr></table></figure>
-<p>引用《JavaScript高级程序设计》中对寄生组合式继承的夸赞就是：</p>
-<p>这种方式的高效率体现它只调用了一次 Parent 构造函数，并且因此避免了在 Parent.prototype 上面创建不必要的、多余的属性。与此同时，原型链还能保持不变；因此，还能够正常使用 instanceof 和 isPrototypeOf。开发人员普遍认为寄生组合式继承是引用类型最理想的继承范式。</p>
-<h2 id="相关链接"><a href="#相关链接" class="headerlink" title="相关链接"></a>相关链接</h2><p><a href="https://github.com/mqyqingfeng/Blog/issues/2" target="_blank" rel="external">《JavaScript深入之从原型到原型链》</a></p>
-<p><a href="https://github.com/mqyqingfeng/Blog/issues/11" target="_blank" rel="external">《JavaScript深入之call和apply的模拟实现》</a></p>
-<p><a href="https://github.com/mqyqingfeng/Blog/issues/13" target="_blank" rel="external">《JavaScript深入之new的模拟实现》</a></p>
-<p><a href="https://github.com/mqyqingfeng/Blog/issues/15" target="_blank" rel="external">《JavaScript深入之创建对象》</a></p>
-<h2 id="深入系列"><a href="#深入系列" class="headerlink" title="深入系列"></a>深入系列</h2><p>JavaScript深入系列目录地址：<a href="https://github.com/mqyqingfeng/Blog" target="_blank" rel="external">https://github.com/mqyqingfeng/Blog</a>。</p>
-<p>JavaScript深入系列预计写十五篇左右，旨在帮大家捋顺JavaScript底层知识，重点讲解如原型、作用域、执行上下文、变量对象、this、闭包、按值传递、call、apply、bind、new、继承等难点概念。</p>
-<p>如果有错误或者不严谨的地方，请务必给予指正，十分感谢。如果喜欢或者有所启发，欢迎star，对作者也是一种鼓励。</p>
-
-          
-        
-      
-    </div>
-
-    <div>
-      
-    </div>
-
-    <div>
-      
-    </div>
-
-    <div>
-      
-    </div>
-
-    <footer class="post-footer">
-      
-
-      
-
-      
-
-      
-      
-        <div class="post-eof"></div>
-      
-    </footer>
-  </article>
-
-
-    
-      
-
-  
-
-  
-  
-  
-
-  <article class="post post-type-normal " itemscope itemtype="http://schema.org/Article">
     <link itemprop="mainEntityOfPage" href="http://yoursite.com/2017/05/27/JavaScript深入之词法作用域和动态作用域/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
@@ -819,7 +826,7 @@
               
                 
                 <a class="post-title-link" href="/2017/05/27/JavaScript深入之词法作用域和动态作用域/" itemprop="url">
-                  未命名
+                  JavaScript深入之词法作用域和动态作用域
                 </a>
               
             
@@ -873,8 +880,7 @@
       
         
           
-            <p>title:JavaScript深入之词法作用域和动态作用域</p>
-<blockquote>
+            <blockquote>
 <p>JavaScript深入系列的第二篇，JavaScript采用词法作用域，什么语言采用了动态作用域？两者的区别又是什么？还有一个略难的思考题，快来看看吧。</p>
 </blockquote>
 <h2 id="作用域"><a href="#作用域" class="headerlink" title="作用域"></a>作用域</h2><p>作用域是指程序源代码中定义变量的区域。</p>
@@ -951,7 +957,7 @@
   
 
   <article class="post post-type-normal " itemscope itemtype="http://schema.org/Article">
-    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2017/05/27/JavaScript深入之闭包/">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2017/05/27/JavaScript深入之继承的多种方式和优缺点/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="name" content="Bosn">
@@ -973,8 +979,8 @@
             
               
                 
-                <a class="post-title-link" href="/2017/05/27/JavaScript深入之闭包/" itemprop="url">
-                  未命名
+                <a class="post-title-link" href="/2017/05/27/JavaScript深入之继承的多种方式和优缺点/" itemprop="url">
+                  JavaScript深入之继承的多种方式和优缺点
                 </a>
               
             
@@ -1028,100 +1034,60 @@
       
         
           
-            <p>title:JavaScript深入之闭包</p>
-<blockquote>
-<p>JavaScript深入系列第八篇，介绍理论上的闭包和实践上的闭包，以及从作用域链的角度解析经典的闭包题。</p>
+            <blockquote>
+<p>JavaScript深入系列第十五篇，讲解JavaScript各种继承方式和优缺点。</p>
 </blockquote>
-<h2 id="定义"><a href="#定义" class="headerlink" title="定义"></a>定义</h2><p>MDN 对闭包的定义为：</p>
-<blockquote>
-<p>闭包是指那些能够访问自由变量的函数。</p>
-</blockquote>
-<p>那什么是自由变量呢？</p>
-<blockquote>
-<p>自由变量是指在函数中使用的，但既不是函数参数也不是函数的局部变量的变量。</p>
-</blockquote>
-<p>由此，我们可以看出闭包共有两部分组成：</p>
-<blockquote>
-<p>闭包 = 函数 + 函数能够访问的自由变量</p>
-</blockquote>
+<h2 id="写在前面"><a href="#写在前面" class="headerlink" title="写在前面"></a>写在前面</h2><p>本文讲解JavaScript各种继承方式和优缺点。</p>
+<p>但是注意：</p>
+<p>这篇文章更像是笔记，哎，再让我感叹一句：《JavaScript高级程序设计》写得真是太好了！</p>
+<h2 id="1-原型链继承"><a href="#1-原型链继承" class="headerlink" title="1.原型链继承"></a>1.原型链继承</h2><figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">function</span> <span class="title">Parent</span> (<span class="params"></span>) </span>&#123;</div><div class="line">    <span class="keyword">this</span>.name = <span class="string">'kevin'</span>;</div><div class="line">&#125;</div><div class="line"></div><div class="line">Parent.prototype.getName = <span class="function"><span class="keyword">function</span> (<span class="params"></span>) </span>&#123;</div><div class="line">    <span class="built_in">console</span>.log(<span class="keyword">this</span>.name);</div><div class="line">&#125;</div><div class="line"></div><div class="line"><span class="function"><span class="keyword">function</span> <span class="title">Child</span> (<span class="params"></span>) </span>&#123;</div><div class="line"></div><div class="line">&#125;</div><div class="line"></div><div class="line">Child.prototype = <span class="keyword">new</span> Parent();</div><div class="line"></div><div class="line"><span class="keyword">var</span> child1 = <span class="keyword">new</span> Child();</div><div class="line"></div><div class="line"><span class="built_in">console</span>.log(child1.getName()) <span class="comment">// kevin</span></div></pre></td></tr></table></figure>
+<p>问题：</p>
+<p>1.引用类型的属性被所有实例共享，举个例子：</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">function</span> <span class="title">Parent</span> (<span class="params"></span>) </span>&#123;</div><div class="line">    <span class="keyword">this</span>.names = [<span class="string">'kevin'</span>, <span class="string">'daisy'</span>];</div><div class="line">&#125;</div><div class="line"></div><div class="line"><span class="function"><span class="keyword">function</span> <span class="title">Child</span> (<span class="params"></span>) </span>&#123;</div><div class="line"></div><div class="line">&#125;</div><div class="line"></div><div class="line">Child.prototype = <span class="keyword">new</span> Parent();</div><div class="line"></div><div class="line"><span class="keyword">var</span> child1 = <span class="keyword">new</span> Child();</div><div class="line"></div><div class="line">child1.names.push(<span class="string">'yayu'</span>);</div><div class="line"></div><div class="line"><span class="built_in">console</span>.log(child1.names); <span class="comment">// ["kevin", "daisy", "yayu"]</span></div><div class="line"></div><div class="line"><span class="keyword">var</span> child2 = <span class="keyword">new</span> Child();</div><div class="line"></div><div class="line"><span class="built_in">console</span>.log(child2.names); <span class="comment">// ["kevin", "daisy", "yayu"]</span></div></pre></td></tr></table></figure>
+<p>2.在创建 Child 的实例时，不能向Parent传参</p>
+<h2 id="2-借用构造函数-经典继承"><a href="#2-借用构造函数-经典继承" class="headerlink" title="2.借用构造函数(经典继承)"></a>2.借用构造函数(经典继承)</h2><figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">function</span> <span class="title">Parent</span> (<span class="params"></span>) </span>&#123;</div><div class="line">    <span class="keyword">this</span>.names = [<span class="string">'kevin'</span>, <span class="string">'daisy'</span>];</div><div class="line">&#125;</div><div class="line"></div><div class="line"><span class="function"><span class="keyword">function</span> <span class="title">Child</span> (<span class="params"></span>) </span>&#123;</div><div class="line">    Parent.call(<span class="keyword">this</span>);</div><div class="line">&#125;</div><div class="line"></div><div class="line"><span class="keyword">var</span> child1 = <span class="keyword">new</span> Child();</div><div class="line"></div><div class="line">child1.names.push(<span class="string">'yayu'</span>);</div><div class="line"></div><div class="line"><span class="built_in">console</span>.log(child1.names); <span class="comment">// ["kevin", "daisy", "yayu"]</span></div><div class="line"></div><div class="line"><span class="keyword">var</span> child2 = <span class="keyword">new</span> Child();</div><div class="line"></div><div class="line"><span class="built_in">console</span>.log(child2.names); <span class="comment">// ["kevin", "daisy"]</span></div></pre></td></tr></table></figure>
+<p>优点：</p>
+<p>1.避免了引用类型的属性被所有实例共享</p>
+<p>2.可以在 Child 中向 Parent 传参</p>
 <p>举个例子：</p>
-<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">var</span> a = <span class="number">1</span>;</div><div class="line"></div><div class="line"><span class="function"><span class="keyword">function</span> <span class="title">foo</span>(<span class="params"></span>) </span>&#123;</div><div class="line">    <span class="built_in">console</span>.log(a);</div><div class="line">&#125;</div><div class="line"></div><div class="line">foo();</div></pre></td></tr></table></figure>
-<p>foo 函数可以访问变量 a，但是 a 既不是 foo 函数的局部变量，也不是 foo 函数的参数，所以 a 就是自由变量。</p>
-<p>那么，函数 foo + foo 函数访问的自由变量 a 不就是构成了一个闭包嘛……</p>
-<p>还真是这样的！</p>
-<p>所以在《JavaScript权威指南》中就讲到：从技术的角度讲，所有的JavaScript函数都是闭包。</p>
-<p>咦，这怎么跟我们平时看到的讲到的闭包不一样呢！？</p>
-<p>别着急，这是理论上的闭包，其实还有一个实践角度上的闭包，让我们看看汤姆大叔翻译的关于闭包的文章中的定义：</p>
-<p>ECMAScript中，闭包指的是：</p>
-<ol>
-<li>从理论角度：所有的函数。因为它们都在创建的时候就将上层上下文的数据保存起来了。哪怕是简单的全局变量也是如此，因为函数中访问全局变量就相当于是在访问自由变量，这个时候使用最外层的作用域。</li>
-<li>从实践角度：以下函数才算是闭包：<ol>
-<li>即使创建它的上下文已经销毁，它仍然存在（比如，内部函数从父函数中返回）</li>
-<li>在代码中引用了自由变量</li>
-</ol>
-</li>
-</ol>
-<p>接下来就来讲讲实践上的闭包。</p>
-<h2 id="分析"><a href="#分析" class="headerlink" title="分析"></a>分析</h2><p>让我们先写个例子，例子依然是来自《JavaScript权威指南》，稍微做点改动：</p>
-<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">var</span> scope = <span class="string">"global scope"</span>;</div><div class="line"><span class="function"><span class="keyword">function</span> <span class="title">checkscope</span>(<span class="params"></span>)</span>&#123;</div><div class="line">    <span class="keyword">var</span> scope = <span class="string">"local scope"</span>;</div><div class="line">    <span class="function"><span class="keyword">function</span> <span class="title">f</span>(<span class="params"></span>)</span>&#123;</div><div class="line">        <span class="keyword">return</span> scope;</div><div class="line">    &#125;</div><div class="line">    <span class="keyword">return</span> f;</div><div class="line">&#125;</div><div class="line"></div><div class="line"><span class="keyword">var</span> foo = checkscope();</div><div class="line">foo();</div></pre></td></tr></table></figure>
-<p>首先我们要分析一下这段代码中执行上下文栈和执行上下文的变化情况。</p>
-<p>另一个与这段代码相似的例子，在<a href="https://github.com/mqyqingfeng/Blog/issues/8" target="_blank" rel="external">《JavaScript深入之执行上下文》</a>中有着非常详细的分析。如果看不懂以下的执行过程，建议先阅读这篇文章。</p>
-<p>这里直接给出简要的执行过程：</p>
-<ol>
-<li>进入全局代码，创建全局执行上下文，全局执行上下文压入执行上下文栈</li>
-<li>全局执行上下文初始化</li>
-<li>执行 checkscope 函数，创建 checkscope 函数执行上下文，checkscope 执行上下文被压入执行上下文栈</li>
-<li>checkscope 执行上下文初始化，创建变量对象、作用域链、this等</li>
-<li>checkscope 函数执行完毕，checkscope 执行上下文从执行上下文栈中弹出</li>
-<li>执行 f 函数，创建 f 函数执行上下文，f 执行上下文被压入执行上下文栈</li>
-<li>f 执行上下文初始化，创建变量对象、作用域链、this等</li>
-<li>f 函数执行完毕，f 函数上下文从执行上下文栈中弹出</li>
-</ol>
-<p>了解到这个过程，我们应该思考一个问题，那就是：</p>
-<p>当 f 函数执行的时候，checkscope 函数上下文已经被销毁了啊(即从执行上下文栈中被弹出)，怎么还会读取到 checkscope 作用域下的 scope 值呢？</p>
-<p>以上的代码，要是转换成 PHP，就会报错，因为在 PHP 中，f 函数只能读取到自己作用域和全局作用域里的值，所以读不到 checkscope 下的 scope 值。(这段我问的PHP同事……)</p>
-<p>然而 JavaScript 却是可以的！</p>
-<p>当我们了解了具体的执行过程后，我们知道 f 执行上下文维护了一个作用域链：</p>
-<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div></pre></td><td class="code"><pre><div class="line">fContext = &#123;</div><div class="line">    <span class="attr">Scope</span>: [AO, checkscopeContext.AO, globalContext.VO],</div><div class="line">&#125;</div></pre></td></tr></table></figure>
-<p>对的，就是因为这个作用域链，f 函数依然可以读取到 checkscopeContext.AO 的值，说明当 f 函数引用了 checkscopeContext.AO 中的值的时候，即使 checkscopeContext 被销毁了，但是 JavaScript 依然会让 checkscopeContext.AO 活在内存中，f 函数依然可以通过 f 函数的作用域链找到它，正是因为 JavaScript 做到了这一点，从而实现了闭包这个概念。</p>
-<p>所以，让我们再看一遍实践角度上闭包的定义：</p>
-<ol>
-<li>即使创建它的上下文已经销毁，它仍然存在（比如，内部函数从父函数中返回）</li>
-<li>在代码中引用了自由变量</li>
-</ol>
-<p>在这里再补充一个《JavaScript权威指南》英文原版对闭包的定义:</p>
-<blockquote>
-<p>This combination of a function object and a scope (a set of variable bindings) in which the function’s variables are resolved is called a closure in the computer science literature.</p>
-</blockquote>
-<p>闭包在计算机科学中也只是一个普通的概念，大家不要去想得太复杂。</p>
-<h2 id="必刷题"><a href="#必刷题" class="headerlink" title="必刷题"></a>必刷题</h2><p>接下来，看这道刷题必刷，面试必考的闭包题：</p>
-<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">var</span> data = [];</div><div class="line"></div><div class="line"><span class="keyword">for</span> (<span class="keyword">var</span> i = <span class="number">0</span>; i &lt; <span class="number">3</span>; i++) &#123;</div><div class="line">  data[i] = <span class="function"><span class="keyword">function</span> (<span class="params"></span>) </span>&#123;</div><div class="line">    <span class="built_in">console</span>.log(i);</div><div class="line">  &#125;;</div><div class="line">&#125;</div><div class="line"></div><div class="line">data[<span class="number">0</span>]();</div><div class="line">data[<span class="number">1</span>]();</div><div class="line">data[<span class="number">2</span>]();</div></pre></td></tr></table></figure>
-<p>答案是都是 3，让我们分析一下原因：</p>
-<p>当执行到 data[0] 函数之前，此时全局上下文的 VO 为：</p>
-<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div></pre></td><td class="code"><pre><div class="line">globalContext = &#123;</div><div class="line">    <span class="attr">VO</span>: &#123;</div><div class="line">        <span class="attr">data</span>: [...],</div><div class="line">        <span class="attr">i</span>: <span class="number">3</span></div><div class="line">    &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
-<p>当执行 data[0] 函数的时候，data[0] 函数的作用域链为：</p>
-<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div></pre></td><td class="code"><pre><div class="line">data[<span class="number">0</span>]Context = &#123;</div><div class="line">    <span class="attr">Scope</span>: [AO, globalContext.VO]</div><div class="line">&#125;</div></pre></td></tr></table></figure>
-<p>data[0]Context 的 AO 并没有 i 值，所以会从 globalContext.VO 中查找，i 为 3，所以打印的结果就是 3。</p>
-<p>data[1] 和 data[2] 是一样的道理。</p>
-<p>所以让我们改成闭包看看：</p>
-<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">var</span> data = [];</div><div class="line"></div><div class="line"><span class="keyword">for</span> (<span class="keyword">var</span> i = <span class="number">0</span>; i &lt; <span class="number">3</span>; i++) &#123;</div><div class="line">  data[i] = (<span class="function"><span class="keyword">function</span> (<span class="params">i</span>) </span>&#123;</div><div class="line">        <span class="keyword">return</span> <span class="function"><span class="keyword">function</span>(<span class="params"></span>)</span>&#123;</div><div class="line">            <span class="built_in">console</span>.log(i);</div><div class="line">        &#125;</div><div class="line">  &#125;)(i);</div><div class="line">&#125;</div><div class="line"></div><div class="line">data[<span class="number">0</span>]();</div><div class="line">data[<span class="number">1</span>]();</div><div class="line">data[<span class="number">2</span>]();</div></pre></td></tr></table></figure>
-<p>当执行到 data[0] 函数之前，此时全局上下文的 VO 为：</p>
-<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div></pre></td><td class="code"><pre><div class="line">globalContext = &#123;</div><div class="line">    <span class="attr">VO</span>: &#123;</div><div class="line">        <span class="attr">data</span>: [...],</div><div class="line">        <span class="attr">i</span>: <span class="number">3</span></div><div class="line">    &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
-<p>跟没改之前一模一样。</p>
-<p>当执行 data[0] 函数的时候，data[0] 函数的作用域链发生了改变：</p>
-<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div></pre></td><td class="code"><pre><div class="line">data[<span class="number">0</span>]Context = &#123;</div><div class="line">    <span class="attr">Scope</span>: [AO, 匿名函数Context.AO globalContext.VO]</div><div class="line">&#125;</div></pre></td></tr></table></figure>
-<p>匿名函数执行上下文的 AO 为：</p>
-<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div></pre></td><td class="code"><pre><div class="line">匿名函数Context = &#123;</div><div class="line">    <span class="attr">AO</span>: &#123;</div><div class="line">        <span class="attr">arguments</span>: &#123;</div><div class="line">            <span class="number">0</span>: <span class="number">0</span>,</div><div class="line">            <span class="attr">length</span>: <span class="number">1</span></div><div class="line">        &#125;,</div><div class="line">        <span class="attr">i</span>: <span class="number">0</span></div><div class="line">    &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
-<p>data[0]Context 的 AO 并没有 i 值，所以会沿着作用域链从匿名函数 Context.AO 中查找，这时候就会找 i 为 0，找到了就不会往 globalContext.VO 中查找了，即使 globalContext.VO 也有 i 的值(值为3)，所以打印的结果就是 0。</p>
-<p>data[1] 和 data[2] 是一样的道理。</p>
-<h2 id="下一篇文章"><a href="#下一篇文章" class="headerlink" title="下一篇文章"></a>下一篇文章</h2><p><a href="https://github.com/mqyqingfeng/Blog/issues/10" target="_blank" rel="external">JavaScript深入之参数按值传递</a></p>
-<h2 id="相关链接"><a href="#相关链接" class="headerlink" title="相关链接"></a>相关链接</h2><p>如果想了解执行上下文的具体变化，不妨循序渐进，阅读这六篇：</p>
-<p><a href="https://github.com/mqyqingfeng/Blog/issues/3" target="_blank" rel="external">《JavaScript深入之词法作用域和动态作用域》</a></p>
-<p><a href="https://github.com/mqyqingfeng/Blog/issues/4" target="_blank" rel="external">《JavaScript深入之执行上下文栈》</a></p>
-<p><a href="https://github.com/mqyqingfeng/Blog/issues/5" target="_blank" rel="external">《JavaScript深入之变量对象》</a></p>
-<p><a href="https://github.com/mqyqingfeng/Blog/issues/6" target="_blank" rel="external">《JavaScript深入之作用域链》</a></p>
-<p><a href="https://github.com/mqyqingfeng/Blog/issues/7" target="_blank" rel="external">《JavaScript深入之从ECMAScript规范解读this》</a></p>
-<p><a href="https://github.com/mqyqingfeng/Blog/issues/8" target="_blank" rel="external">《JavaScript深入之执行上下文》</a></p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">function</span> <span class="title">Parent</span> (<span class="params">name</span>) </span>&#123;</div><div class="line">    <span class="keyword">this</span>.name = name;</div><div class="line">&#125;</div><div class="line"></div><div class="line"><span class="function"><span class="keyword">function</span> <span class="title">Child</span> (<span class="params">name</span>) </span>&#123;</div><div class="line">    Parent.call(<span class="keyword">this</span>, name);</div><div class="line">&#125;</div><div class="line"></div><div class="line"><span class="keyword">var</span> child1 = <span class="keyword">new</span> Child(<span class="string">'kevin'</span>);</div><div class="line"></div><div class="line"><span class="built_in">console</span>.log(child1.name); <span class="comment">// kevin</span></div><div class="line"></div><div class="line"><span class="keyword">var</span> child2 = <span class="keyword">new</span> Child(<span class="string">'daisy'</span>);</div><div class="line"></div><div class="line"><span class="built_in">console</span>.log(child2.name); <span class="comment">// daisy</span></div></pre></td></tr></table></figure>
+<p>缺点：</p>
+<p>方法都在构造函数中定义，每次创建实例都会创建一遍方法。</p>
+<h2 id="3-组合继承"><a href="#3-组合继承" class="headerlink" title="3.组合继承"></a>3.组合继承</h2><p>原型链继承和经典继承双剑合璧。</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">function</span> <span class="title">Parent</span> (<span class="params">name</span>) </span>&#123;</div><div class="line">    <span class="keyword">this</span>.name = name;</div><div class="line">    <span class="keyword">this</span>.colors = [<span class="string">'red'</span>, <span class="string">'blue'</span>, <span class="string">'green'</span>];</div><div class="line">&#125;</div><div class="line"></div><div class="line">Parent.prototype.getName = <span class="function"><span class="keyword">function</span> (<span class="params"></span>) </span>&#123;</div><div class="line">    <span class="built_in">console</span>.log(<span class="keyword">this</span>.name)</div><div class="line">&#125;</div><div class="line"></div><div class="line"><span class="function"><span class="keyword">function</span> <span class="title">Child</span> (<span class="params">name, age</span>) </span>&#123;</div><div class="line"></div><div class="line">    Parent.call(<span class="keyword">this</span>, name);</div><div class="line">    </div><div class="line">    <span class="keyword">this</span>.age = age;</div><div class="line"></div><div class="line">&#125;</div><div class="line"></div><div class="line">Child.prototype = <span class="keyword">new</span> Parent();</div><div class="line"></div><div class="line"><span class="keyword">var</span> child1 = <span class="keyword">new</span> Child(<span class="string">'kevin'</span>, <span class="string">'18'</span>);</div><div class="line"></div><div class="line">child1.colors.push(<span class="string">'black'</span>);</div><div class="line"></div><div class="line"><span class="built_in">console</span>.log(child1.name); <span class="comment">// kevin</span></div><div class="line"><span class="built_in">console</span>.log(child1.age); <span class="comment">// 18</span></div><div class="line"><span class="built_in">console</span>.log(child1.colors); <span class="comment">// ["red", "blue", "green", "black"]</span></div><div class="line"></div><div class="line"><span class="keyword">var</span> child2 = <span class="keyword">new</span> Child(<span class="string">'daisy'</span>, <span class="string">'20'</span>);</div><div class="line"></div><div class="line"><span class="built_in">console</span>.log(child2.name); <span class="comment">// daisy</span></div><div class="line"><span class="built_in">console</span>.log(child2.age); <span class="comment">// 20</span></div><div class="line"><span class="built_in">console</span>.log(child2.colors); <span class="comment">// ["red", "blue", "green"]</span></div></pre></td></tr></table></figure>
+<p>优点：融合原型链继承和构造函数的优点，是 JavaScript 中最常用的继承模式。</p>
+<h2 id="4-原型式继承"><a href="#4-原型式继承" class="headerlink" title="4.原型式继承"></a>4.原型式继承</h2><figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">function</span> <span class="title">createObj</span>(<span class="params">o</span>) </span>&#123;</div><div class="line">    <span class="function"><span class="keyword">function</span> <span class="title">F</span>(<span class="params"></span>)</span>&#123;&#125;</div><div class="line">    F.prototype = o;</div><div class="line">    <span class="keyword">return</span> <span class="keyword">new</span> F();</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>就是 ES5 Object.create 的模拟实现，将传入的对象作为创建的对象的原型。</p>
+<p>缺点：</p>
+<p>包含引用类型的属性值始终都会共享相应的值，这点跟原型链继承一样。</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">var</span> person = &#123;</div><div class="line">    <span class="attr">name</span>: <span class="string">'kevin'</span>,</div><div class="line">    <span class="attr">friends</span>: [<span class="string">'daisy'</span>, <span class="string">'kelly'</span>]</div><div class="line">&#125;</div><div class="line"></div><div class="line"><span class="keyword">var</span> person1 = createObj(person);</div><div class="line"><span class="keyword">var</span> person2 = createObj(person);</div><div class="line"></div><div class="line">person1.name = <span class="string">'person1'</span>;</div><div class="line"><span class="built_in">console</span>.log(person2.name); <span class="comment">// kevin</span></div><div class="line"></div><div class="line">person1.firends.push(<span class="string">'taylor'</span>);</div><div class="line"><span class="built_in">console</span>.log(person2.friends); <span class="comment">// ["daisy", "kelly", "taylor"]</span></div></pre></td></tr></table></figure>
+<p>注意：修改<code>person1.name</code>的值，<code>person2.name</code>的值并未发生改变，并不是因为<code>person1</code>和<code>person2</code>有独立的 name 值，而是因为<code>person1.name = &#39;person1&#39;</code>，给<code>person1</code>添加了 name 值，并非修改了原型上的 name 值。</p>
+<h2 id="5-寄生式继承"><a href="#5-寄生式继承" class="headerlink" title="5. 寄生式继承"></a>5. 寄生式继承</h2><p>创建一个仅用于封装继承过程的函数，该函数在内部以某种形式来做增强对象，最后返回对象。</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">function</span> <span class="title">createObj</span> (<span class="params">o</span>) </span>&#123;</div><div class="line">    <span class="keyword">var</span> clone = object.create(o);</div><div class="line">    clone.sayName = <span class="function"><span class="keyword">function</span> (<span class="params"></span>) </span>&#123;</div><div class="line">        <span class="built_in">console</span>.log(<span class="string">'hi'</span>);</div><div class="line">    &#125;</div><div class="line">    <span class="keyword">return</span> clone;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>缺点：跟借用构造函数模式一样，每次创建对象都会创建一遍方法。</p>
+<h2 id="6-寄生组合式继承"><a href="#6-寄生组合式继承" class="headerlink" title="6. 寄生组合式继承"></a>6. 寄生组合式继承</h2><p>为了方便大家阅读，在这里重复一下组合继承的代码：</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">function</span> <span class="title">Parent</span> (<span class="params">name</span>) </span>&#123;</div><div class="line">    <span class="keyword">this</span>.name = name;</div><div class="line">    <span class="keyword">this</span>.colors = [<span class="string">'red'</span>, <span class="string">'blue'</span>, <span class="string">'green'</span>];</div><div class="line">&#125;</div><div class="line"></div><div class="line">Parent.prototype.getName = <span class="function"><span class="keyword">function</span> (<span class="params"></span>) </span>&#123;</div><div class="line">    <span class="built_in">console</span>.log(<span class="keyword">this</span>.name)</div><div class="line">&#125;</div><div class="line"></div><div class="line"><span class="function"><span class="keyword">function</span> <span class="title">Child</span> (<span class="params">name, age</span>) </span>&#123;</div><div class="line">    Parent.call(<span class="keyword">this</span>, name);</div><div class="line">    <span class="keyword">this</span>.age = age;</div><div class="line">&#125;</div><div class="line"></div><div class="line">Child.prototype = <span class="keyword">new</span> Parent();</div><div class="line"></div><div class="line"><span class="keyword">var</span> child1 = <span class="keyword">new</span> Child(<span class="string">'kevin'</span>, <span class="string">'18'</span>);</div><div class="line"></div><div class="line"><span class="built_in">console</span>.log(child1)</div></pre></td></tr></table></figure>
+<p>组合继承最大的缺点是会调用两次父构造函数。</p>
+<p>一次是设置子类型实例的原型的时候：</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">Child.prototype = <span class="keyword">new</span> Parent();</div></pre></td></tr></table></figure>
+<p>一次在创建子类型实例的时候：</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">var</span> child1 = <span class="keyword">new</span> Child(<span class="string">'kevin'</span>, <span class="string">'18'</span>);</div></pre></td></tr></table></figure>
+<p>回想下 new 的模拟实现，其实在这句中，我们会执行：</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">Parent.call(<span class="keyword">this</span>, name);</div></pre></td></tr></table></figure>
+<p>在这里，我们又会调用了一次 Parent 构造函数。</p>
+<p>所以，在这个例子中，如果我们打印 child1 对象，我们会发现 Child.prototype 和 child1 都有一个属性为<code>colors</code>，属性值为<code>[&#39;red&#39;, &#39;blue&#39;, &#39;green&#39;]</code>。</p>
+<p>那么我们该如何精益求精，避免这一次重复调用呢？</p>
+<p>如果我们不使用 Child.prototype = new Parent() ，而是间接的让 Child.prototype 访问到 Parent.prototype 呢？</p>
+<p>看看如何实现：</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">function</span> <span class="title">Parent</span> (<span class="params">name</span>) </span>&#123;</div><div class="line">    <span class="keyword">this</span>.name = name;</div><div class="line">    <span class="keyword">this</span>.colors = [<span class="string">'red'</span>, <span class="string">'blue'</span>, <span class="string">'green'</span>];</div><div class="line">&#125;</div><div class="line"></div><div class="line">Parent.prototype.getName = <span class="function"><span class="keyword">function</span> (<span class="params"></span>) </span>&#123;</div><div class="line">    <span class="built_in">console</span>.log(<span class="keyword">this</span>.name)</div><div class="line">&#125;</div><div class="line"></div><div class="line"><span class="function"><span class="keyword">function</span> <span class="title">Child</span> (<span class="params">name, age</span>) </span>&#123;</div><div class="line">    Parent.call(<span class="keyword">this</span>, name);</div><div class="line">    <span class="keyword">this</span>.age = age;</div><div class="line">&#125;</div><div class="line"></div><div class="line"><span class="comment">// 关键的三步</span></div><div class="line"><span class="keyword">var</span> F = <span class="function"><span class="keyword">function</span> (<span class="params"></span>) </span>&#123;&#125;;</div><div class="line"></div><div class="line">F.prototype = Parent.prototype;</div><div class="line"></div><div class="line">Child.prototype = <span class="keyword">new</span> F();</div><div class="line"></div><div class="line"></div><div class="line"><span class="keyword">var</span> child1 = <span class="keyword">new</span> Child(<span class="string">'kevin'</span>, <span class="string">'18'</span>);</div><div class="line"></div><div class="line"><span class="built_in">console</span>.log(child1);</div></pre></td></tr></table></figure>
+<p>最后我们封装一下这个继承方法：</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">function</span> <span class="title">object</span>(<span class="params">o</span>) </span>&#123;</div><div class="line">    <span class="function"><span class="keyword">function</span> <span class="title">F</span>(<span class="params"></span>) </span>&#123;&#125;</div><div class="line">    F.prototype = o;</div><div class="line">    <span class="keyword">return</span> <span class="keyword">new</span> F();</div><div class="line">&#125;</div><div class="line"></div><div class="line"><span class="function"><span class="keyword">function</span> <span class="title">prototype</span>(<span class="params">child, parent</span>) </span>&#123;</div><div class="line">    <span class="keyword">var</span> prototype = object(parent.prototype);</div><div class="line">    prototype.constructor = child;</div><div class="line">    child.prototype = prototype;</div><div class="line">&#125;</div><div class="line"></div><div class="line"><span class="comment">// 当我们使用的时候：</span></div><div class="line">prototype(Child, Parent);</div></pre></td></tr></table></figure>
+<p>引用《JavaScript高级程序设计》中对寄生组合式继承的夸赞就是：</p>
+<p>这种方式的高效率体现它只调用了一次 Parent 构造函数，并且因此避免了在 Parent.prototype 上面创建不必要的、多余的属性。与此同时，原型链还能保持不变；因此，还能够正常使用 instanceof 和 isPrototypeOf。开发人员普遍认为寄生组合式继承是引用类型最理想的继承范式。</p>
+<h2 id="相关链接"><a href="#相关链接" class="headerlink" title="相关链接"></a>相关链接</h2><p><a href="https://github.com/mqyqingfeng/Blog/issues/2" target="_blank" rel="external">《JavaScript深入之从原型到原型链》</a></p>
+<p><a href="https://github.com/mqyqingfeng/Blog/issues/11" target="_blank" rel="external">《JavaScript深入之call和apply的模拟实现》</a></p>
+<p><a href="https://github.com/mqyqingfeng/Blog/issues/13" target="_blank" rel="external">《JavaScript深入之new的模拟实现》</a></p>
+<p><a href="https://github.com/mqyqingfeng/Blog/issues/15" target="_blank" rel="external">《JavaScript深入之创建对象》</a></p>
 <h2 id="深入系列"><a href="#深入系列" class="headerlink" title="深入系列"></a>深入系列</h2><p>JavaScript深入系列目录地址：<a href="https://github.com/mqyqingfeng/Blog" target="_blank" rel="external">https://github.com/mqyqingfeng/Blog</a>。</p>
 <p>JavaScript深入系列预计写十五篇左右，旨在帮大家捋顺JavaScript底层知识，重点讲解如原型、作用域、执行上下文、变量对象、this、闭包、按值传递、call、apply、bind、new、继承等难点概念。</p>
 <p>如果有错误或者不严谨的地方，请务必给予指正，十分感谢。如果喜欢或者有所启发，欢迎star，对作者也是一种鼓励。</p>
