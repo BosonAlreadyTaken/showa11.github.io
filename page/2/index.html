@@ -278,7 +278,7 @@
   
 
   <article class="post post-type-normal " itemscope itemtype="http://schema.org/Article">
-    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2017/05/27/JavaScript深入之执行上下文/">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2017/05/27/JavaScript深入之执行上下文栈/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="name" content="Bosn">
@@ -300,7 +300,7 @@
             
               
                 
-                <a class="post-title-link" href="/2017/05/27/JavaScript深入之执行上下文/" itemprop="url">
+                <a class="post-title-link" href="/2017/05/27/JavaScript深入之执行上下文栈/" itemprop="url">
                   未命名
                 </a>
               
@@ -355,70 +355,43 @@
       
         
           
-            <h1 id="JavaScript深入之执行上下文"><a href="#JavaScript深入之执行上下文" class="headerlink" title="JavaScript深入之执行上下文"></a>JavaScript深入之执行上下文</h1><blockquote>
-<p>JavaScript深入系列第七篇，结合之前所讲的四篇文章，以权威指南的demo为例，具体讲解当函数执行的时候，执行上下文栈、变量对象、作用域链是如何变化的。</p>
+            <p>title:JavaScript深入之执行上下文栈</p>
+<blockquote>
+<p>JavaScript深入系列第三篇，讲解执行上下文栈的是如何执行的，也回答了第二篇中的略难的思考题。</p>
 </blockquote>
-<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>在<a href="https://github.com/mqyqingfeng/Blog/issues/4" target="_blank" rel="external">《JavaScript深入之执行上下文栈》</a>中讲到，当 JavaScript 代码执行一段可执行代码(executable code)时，会创建对应的执行上下文(execution context)。</p>
-<p>对于每个执行上下文，都有三个重要属性：</p>
-<ul>
-<li>变量对象(Variable object，VO)</li>
-<li>作用域链(Scope chain)</li>
-<li>this</li>
-</ul>
-<p>然后分别在<a href="https://github.com/mqyqingfeng/Blog/issues/5" target="_blank" rel="external">《JavaScript深入之变量对象》</a>、<a href="https://github.com/mqyqingfeng/Blog/issues/6" target="_blank" rel="external">《JavaScript深入之作用域链》</a>、<a href="https://github.com/mqyqingfeng/Blog/issues/7" target="_blank" rel="external">《JavaScript深入之从ECMAScript规范解读this》</a>中讲解了这三个属性。</p>
-<p>阅读本文前，如果对以上的概念不是很清楚，希望先阅读这些文章。</p>
-<p>因为，这一篇，我们会结合着所有内容，讲讲执行上下文的具体处理过程。</p>
-<h2 id="思考题"><a href="#思考题" class="headerlink" title="思考题"></a>思考题</h2><p>在<a href="https://github.com/mqyqingfeng/Blog/issues/3" target="_blank" rel="external">《JavaScript深入之词法作用域和动态作用域》</a>中，提出这样一道思考题：</p>
+<h2 id="顺序执行？"><a href="#顺序执行？" class="headerlink" title="顺序执行？"></a>顺序执行？</h2><p>如果要问到 JavaScript 代码执行顺序的话，想必写过 JavaScript 的开发者都会有个直观的印象，那就是顺序执行，毕竟：</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">var</span> foo = <span class="function"><span class="keyword">function</span> (<span class="params"></span>) </span>&#123;</div><div class="line"></div><div class="line">    <span class="built_in">console</span>.log(<span class="string">'foo1'</span>);</div><div class="line"></div><div class="line">&#125;</div><div class="line"></div><div class="line">foo();  <span class="comment">// foo1</span></div><div class="line"></div><div class="line"><span class="keyword">var</span> foo = <span class="function"><span class="keyword">function</span> (<span class="params"></span>) </span>&#123;</div><div class="line"></div><div class="line">    <span class="built_in">console</span>.log(<span class="string">'foo2'</span>);</div><div class="line"></div><div class="line">&#125;</div><div class="line"></div><div class="line">foo(); <span class="comment">// foo2</span></div></pre></td></tr></table></figure>
+<p>然而去看这段代码：</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div></pre></td><td class="code"><pre><div class="line"></div><div class="line"><span class="function"><span class="keyword">function</span> <span class="title">foo</span>(<span class="params"></span>) </span>&#123;</div><div class="line"></div><div class="line">    <span class="built_in">console</span>.log(<span class="string">'foo1'</span>);</div><div class="line"></div><div class="line">&#125;</div><div class="line"></div><div class="line">foo();  <span class="comment">// foo2</span></div><div class="line"></div><div class="line"><span class="function"><span class="keyword">function</span> <span class="title">foo</span>(<span class="params"></span>) </span>&#123;</div><div class="line"></div><div class="line">    <span class="built_in">console</span>.log(<span class="string">'foo2'</span>);</div><div class="line"></div><div class="line">&#125;</div><div class="line"></div><div class="line">foo(); <span class="comment">// foo2</span></div></pre></td></tr></table></figure>
+<p>打印的结果却是两个 <code>foo2</code>。</p>
+<p>刷过面试题的都知道这是因为 JavaScript 引擎并非一行一行地分析和执行程序，而是一段一段地分析执行。当执行一段代码的时候，会进行一个“准备工作”，比如第一个例子中的变量提升，和第二个例子中的函数提升。</p>
+<p>但是本文真正想让大家思考的是：这个“一段一段”中的“段”究竟是怎么划分的呢？</p>
+<p>到底JavaScript引擎遇到一段怎样的代码时才会做“准备工作”呢？</p>
+<h2 id="可执行代码"><a href="#可执行代码" class="headerlink" title="可执行代码"></a>可执行代码</h2><p>这就要说到 JavaScript 的可执行代码(executable code)的类型有哪些了？</p>
+<p>其实很简单，就三种，全局代码、函数代码、eval代码。</p>
+<p>举个例子，当执行到一个函数的时候，就会进行准备工作，这里的“准备工作”，让我们用个更专业一点的说法，就叫做”执行上下文(execution contexts)”。</p>
+<h2 id="执行上下文栈"><a href="#执行上下文栈" class="headerlink" title="执行上下文栈"></a>执行上下文栈</h2><p>接下来问题来了，我们写的函数多了去了，如何管理创建的那么多执行上下文呢？</p>
+<p>所以 JavaScript 引擎创建了执行上下文栈（Execution context stack，ECS）来管理执行上下文</p>
+<p>为了模拟执行上下文栈的行为，让我们定义执行上下文栈是一个数组：</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">ECStack = [];</div></pre></td></tr></table></figure>
+<p>试想当 JavaScript 开始要解释执行代码的时候，最先遇到的就是全局代码，所以初始化的时候首先就会向执行上下文栈压入一个全局执行上下文，我们用 globalContext 表示它，并且只有当整个应用程序结束的时候，ECStack 才会被清空，所以 ECStack 最底部永远有个 globalContext：</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div></pre></td><td class="code"><pre><div class="line">ECStack = [</div><div class="line">    globalContext</div><div class="line">];</div></pre></td></tr></table></figure>
+<p>现在 JavaScript 遇到下面的这段代码了：</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">function</span> <span class="title">fun3</span>(<span class="params"></span>) </span>&#123;</div><div class="line">    <span class="built_in">console</span>.log(<span class="string">'fun3'</span>)</div><div class="line">&#125;</div><div class="line"></div><div class="line"><span class="function"><span class="keyword">function</span> <span class="title">fun2</span>(<span class="params"></span>) </span>&#123;</div><div class="line">    fun3();</div><div class="line">&#125;</div><div class="line"></div><div class="line"><span class="function"><span class="keyword">function</span> <span class="title">fun1</span>(<span class="params"></span>) </span>&#123;</div><div class="line">    fun2();</div><div class="line">&#125;</div><div class="line"></div><div class="line">fun1();</div></pre></td></tr></table></figure>
+<p>当执行一个函数的时候，就会创建一个执行上下文，并且压入执行上下文栈，当函数执行完毕的时候，就会将函数的执行上下文从栈中弹出。知道了这样的工作原理，让我们来看看如何处理上面这段代码：</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div></pre></td><td class="code"><pre><div class="line"><span class="comment">// 伪代码</span></div><div class="line"></div><div class="line"><span class="comment">// fun1()</span></div><div class="line">ECStack.push(&lt;fun1&gt; functionContext);</div><div class="line"></div><div class="line">// fun1中竟然调用了fun2，还要创建fun2的执行上下文</div><div class="line">ECStack.push(&lt;fun2&gt; functionContext);</div><div class="line"></div><div class="line">// 擦，fun2还调用了fun3！</div><div class="line">ECStack.push(&lt;fun3&gt; functionContext);</div><div class="line"></div><div class="line">// fun3执行完毕</div><div class="line">ECStack.pop();</div><div class="line"></div><div class="line">// fun2执行完毕</div><div class="line">ECStack.pop();</div><div class="line"></div><div class="line">// fun1执行完毕</div><div class="line">ECStack.pop();</div><div class="line"></div><div class="line">// javascript接着执行下面的代码，但是ECStack底层永远有个globalContext</div></pre></td></tr></table></figure>
+<h2 id="解答思考题"><a href="#解答思考题" class="headerlink" title="解答思考题"></a>解答思考题</h2><p>好啦，现在我们已经了解了执行上下文栈是如何处理执行上下文的，所以让我们看看上篇文章<a href="https://github.com/mqyqingfeng/Blog/issues/3" target="_blank" rel="external">《JavaScript深入之词法作用域和动态作用域》</a>最后的问题：</p>
 <figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">var</span> scope = <span class="string">"global scope"</span>;</div><div class="line"><span class="function"><span class="keyword">function</span> <span class="title">checkscope</span>(<span class="params"></span>)</span>&#123;</div><div class="line">    <span class="keyword">var</span> scope = <span class="string">"local scope"</span>;</div><div class="line">    <span class="function"><span class="keyword">function</span> <span class="title">f</span>(<span class="params"></span>)</span>&#123;</div><div class="line">        <span class="keyword">return</span> scope;</div><div class="line">    &#125;</div><div class="line">    <span class="keyword">return</span> f();</div><div class="line">&#125;</div><div class="line">checkscope();</div></pre></td></tr></table></figure>
 <figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">var</span> scope = <span class="string">"global scope"</span>;</div><div class="line"><span class="function"><span class="keyword">function</span> <span class="title">checkscope</span>(<span class="params"></span>)</span>&#123;</div><div class="line">    <span class="keyword">var</span> scope = <span class="string">"local scope"</span>;</div><div class="line">    <span class="function"><span class="keyword">function</span> <span class="title">f</span>(<span class="params"></span>)</span>&#123;</div><div class="line">        <span class="keyword">return</span> scope;</div><div class="line">    &#125;</div><div class="line">    <span class="keyword">return</span> f;</div><div class="line">&#125;</div><div class="line">checkscope()();</div></pre></td></tr></table></figure>
-<p>两段代码都会打印’local scope’。虽然两段代码执行的结果一样，但是两段代码究竟有哪些不同呢？</p>
-<p>紧接着就在下一篇<a href="https://github.com/mqyqingfeng/Blog/issues/4" target="_blank" rel="external">《JavaScript深入之执行上下文栈》</a>中，讲到了两者的区别在于执行上下文栈的变化不一样，然而，如果是这样笼统的回答，依然显得不够详细，本篇就会详细的解析执行上下文栈和执行上下文的具体变化过程。</p>
-<h2 id="具体执行分析"><a href="#具体执行分析" class="headerlink" title="具体执行分析"></a>具体执行分析</h2><p>我们分析第一段代码：</p>
-<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">var</span> scope = <span class="string">"global scope"</span>;</div><div class="line"><span class="function"><span class="keyword">function</span> <span class="title">checkscope</span>(<span class="params"></span>)</span>&#123;</div><div class="line">    <span class="keyword">var</span> scope = <span class="string">"local scope"</span>;</div><div class="line">    <span class="function"><span class="keyword">function</span> <span class="title">f</span>(<span class="params"></span>)</span>&#123;</div><div class="line">        <span class="keyword">return</span> scope;</div><div class="line">    &#125;</div><div class="line">    <span class="keyword">return</span> f();</div><div class="line">&#125;</div><div class="line">checkscope();</div></pre></td></tr></table></figure>
-<p>执行过程如下：</p>
-<p>1.执行全局代码，创建全局执行上下文，全局上下文被压入执行上下文栈</p>
-<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div></pre></td><td class="code"><pre><div class="line">ECStack = [</div><div class="line">    globalContext</div><div class="line">];</div></pre></td></tr></table></figure>
-<p>2.全局上下文初始化</p>
-<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div></pre></td><td class="code"><pre><div class="line">globalContext = &#123;</div><div class="line">    <span class="attr">VO</span>: [global, scope, checkscope],</div><div class="line">    <span class="attr">Scope</span>: [globalContext.VO],</div><div class="line">    <span class="attr">this</span>: globalContext.VO</div><div class="line">&#125;</div></pre></td></tr></table></figure>
-<p>2.初始化的同时，checkscope 函数被创建，保存作用域链到函数的内部属性[[scope]]</p>
-<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div></pre></td><td class="code"><pre><div class="line">checkscope.[[scope]] = [</div><div class="line">  globalContext.VO</div><div class="line">];</div></pre></td></tr></table></figure>
-<p>3.执行 checkscope 函数，创建 checkscope 函数执行上下文，checkscope 函数执行上下文被压入执行上下文栈</p>
-<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div></pre></td><td class="code"><pre><div class="line">ECStack = [</div><div class="line">    checkscopeContext,</div><div class="line">    globalContext</div><div class="line">];</div></pre></td></tr></table></figure>
-<p>4.checkscope 函数执行上下文初始化：</p>
-<ol>
-<li>复制函数 [[scope]] 属性创建作用域链，</li>
-<li>用 arguments 创建活动对象，</li>
-<li>初始化活动对象，即加入形参、函数声明、变量声明，</li>
-<li>将活动对象压入 checkscope 作用域链顶端。</li>
-</ol>
-<p>同时 f 函数被创建，保存作用域链到 f 函数的内部属性[[scope]]</p>
-<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div></pre></td><td class="code"><pre><div class="line">checkscopeContext = &#123;</div><div class="line">    <span class="attr">AO</span>: &#123;</div><div class="line">        <span class="attr">arguments</span>: &#123;</div><div class="line">            <span class="attr">length</span>: <span class="number">0</span></div><div class="line">        &#125;,</div><div class="line">        <span class="attr">scope</span>: <span class="literal">undefined</span>,</div><div class="line">        <span class="attr">f</span>: reference to <span class="function"><span class="keyword">function</span> <span class="title">f</span>(<span class="params"></span>)</span>&#123;&#125;</div><div class="line">    &#125;,</div><div class="line">    <span class="attr">Scope</span>: [AO, globalContext.VO],</div><div class="line">    <span class="attr">this</span>: <span class="literal">undefined</span></div><div class="line">&#125;</div></pre></td></tr></table></figure>
-<p>5.执行 f 函数，创建 f 函数执行上下文，f 函数执行上下文被压入执行上下文栈</p>
-<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div></pre></td><td class="code"><pre><div class="line">ECStack = [</div><div class="line">    fContext,</div><div class="line">    checkscopeContext,</div><div class="line">    globalContext</div><div class="line">];</div></pre></td></tr></table></figure>
-<p>6.f 函数执行上下文初始化, 以下跟第 4 步相同：</p>
-<ol>
-<li>复制函数 [[scope]] 属性创建作用域链</li>
-<li>用 arguments 创建活动对象</li>
-<li>初始化活动对象，即加入形参、函数声明、变量声明</li>
-<li>将活动对象压入 f 作用域链顶端</li>
-</ol>
-<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div></pre></td><td class="code"><pre><div class="line">fContext = &#123;</div><div class="line">    <span class="attr">AO</span>: &#123;</div><div class="line">        <span class="attr">arguments</span>: &#123;</div><div class="line">            <span class="attr">length</span>: <span class="number">0</span></div><div class="line">        &#125;</div><div class="line">    &#125;,</div><div class="line">    <span class="attr">Scope</span>: [AO, checkscopeContext.AO, globalContext.VO],</div><div class="line">    <span class="attr">this</span>: <span class="literal">undefined</span></div><div class="line">&#125;</div></pre></td></tr></table></figure>
-<p>7.f 函数执行，沿着作用域链查找 scope 值，返回 scope 值</p>
-<p>8.f 函数执行完毕，f 函数上下文从执行上下文栈中弹出</p>
-<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div></pre></td><td class="code"><pre><div class="line">ECStack = [</div><div class="line">    checkscopeContext,</div><div class="line">    globalContext</div><div class="line">];</div></pre></td></tr></table></figure>
-<p>9.checkscope 函数执行完毕，checkscope 执行上下文从执行上下文栈中弹出</p>
-<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div></pre></td><td class="code"><pre><div class="line">ECStack = [</div><div class="line">    globalContext</div><div class="line">];</div></pre></td></tr></table></figure>
-<p>第二段代码就留给大家去尝试模拟它的执行过程。</p>
-<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">var</span> scope = <span class="string">"global scope"</span>;</div><div class="line"><span class="function"><span class="keyword">function</span> <span class="title">checkscope</span>(<span class="params"></span>)</span>&#123;</div><div class="line">    <span class="keyword">var</span> scope = <span class="string">"local scope"</span>;</div><div class="line">    <span class="function"><span class="keyword">function</span> <span class="title">f</span>(<span class="params"></span>)</span>&#123;</div><div class="line">        <span class="keyword">return</span> scope;</div><div class="line">    &#125;</div><div class="line">    <span class="keyword">return</span> f;</div><div class="line">&#125;</div><div class="line">checkscope()();</div></pre></td></tr></table></figure>
-<p>不过，在下一篇《JavaScript深入之闭包》中也会提及这段代码的执行过程。</p>
-<h2 id="下一篇文章"><a href="#下一篇文章" class="headerlink" title="下一篇文章"></a>下一篇文章</h2><p><a href="https://github.com/mqyqingfeng/Blog/issues/9" target="_blank" rel="external">《JavaScript深入之闭包》</a></p>
-<h2 id="相关链接"><a href="#相关链接" class="headerlink" title="相关链接"></a>相关链接</h2><p><a href="https://github.com/mqyqingfeng/Blog/issues/3" target="_blank" rel="external">《JavaScript深入之词法作用域和动态作用域》</a></p>
-<p><a href="https://github.com/mqyqingfeng/Blog/issues/4" target="_blank" rel="external">《JavaScript深入之执行上下文栈》</a></p>
-<p><a href="https://github.com/mqyqingfeng/Blog/issues/5" target="_blank" rel="external">《JavaScript深入之变量对象》</a></p>
-<p><a href="https://github.com/mqyqingfeng/Blog/issues/6" target="_blank" rel="external">《JavaScript深入之作用域链》</a></p>
-<p><a href="https://github.com/mqyqingfeng/Blog/issues/7" target="_blank" rel="external">《JavaScript深入之从ECMAScript规范解读this》</a></p>
-<h2 id="重要参考"><a href="#重要参考" class="headerlink" title="重要参考"></a>重要参考</h2><p><a href="https://github.com/kuitos/kuitos.github.io/issues/18" target="_blank" rel="external">《一道js面试题引发的思考》</a></p>
-<p>本文写的太好，给了我很多启发。感激不尽！</p>
+<p>两段代码执行的结果一样，但是两段代码究竟有哪些不同呢？</p>
+<p>答案就是执行上下文栈的变化不一样。</p>
+<p>让我们模拟第一段代码：</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div></pre></td><td class="code"><pre><div class="line">ECStack.push(&lt;checkscope&gt; functionContext);</div><div class="line">ECStack.push(&lt;f&gt; functionContext);</div><div class="line">ECStack.pop();</div><div class="line">ECStack.pop();</div></pre></td></tr></table></figure>
+<p>让我们模拟第二段代码：</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div></pre></td><td class="code"><pre><div class="line">ECStack.push(&lt;checkscope&gt; functionContext);</div><div class="line">ECStack.pop();</div><div class="line">ECStack.push(&lt;f&gt; functionContext);</div><div class="line">ECStack.pop();</div></pre></td></tr></table></figure>
+<p>是不是有些不同呢？</p>
+<p>当然了，这样概括的回答执行上下文栈的变化不同，是不是依然有一种意犹未尽的感觉呢，为了更详细讲解两个函数执行上的区别，我们需要探究一下执行上下文到底包含了哪些内容，所以欢迎阅读下一篇《JavaScript深入之变量对象》。</p>
+<h2 id="下一篇文章"><a href="#下一篇文章" class="headerlink" title="下一篇文章"></a>下一篇文章</h2><p><a href="https://github.com/mqyqingfeng/Blog/issues/5" target="_blank" rel="external">《JavaScript深入之变量对象》</a></p>
 <h2 id="深入系列"><a href="#深入系列" class="headerlink" title="深入系列"></a>深入系列</h2><p>JavaScript深入系列目录地址：<a href="https://github.com/mqyqingfeng/Blog" target="_blank" rel="external">https://github.com/mqyqingfeng/Blog</a>。</p>
 <p>JavaScript深入系列预计写十五篇左右，旨在帮大家捋顺JavaScript底层知识，重点讲解如原型、作用域、执行上下文、变量对象、this、闭包、按值传递、call、apply、bind、new、继承等难点概念。</p>
 <p>如果有错误或者不严谨的地方，请务必给予指正，十分感谢。如果喜欢或者有所启发，欢迎star，对作者也是一种鼓励。</p>
@@ -542,7 +515,8 @@
       
         
           
-            <h1 id="JavaScript深入之类数组对象与arguments"><a href="#JavaScript深入之类数组对象与arguments" class="headerlink" title="JavaScript深入之类数组对象与arguments"></a>JavaScript深入之类数组对象与arguments</h1><blockquote>
+            <p>title:JavaScript深入之类数组对象与arguments</p>
+<blockquote>
 <p>JavaScript深入系列第十三篇，讲解类数组对象与对象的相似与差异以及arguments的注意要点</p>
 </blockquote>
 <h2 id="类数组对象"><a href="#类数组对象" class="headerlink" title="类数组对象"></a>类数组对象</h2><p>所谓的类数组对象:</p>
@@ -598,165 +572,6 @@
 </ol>
 <p>欢迎留言回复。</p>
 <h2 id="下一篇文章"><a href="#下一篇文章" class="headerlink" title="下一篇文章"></a>下一篇文章</h2><p><a href="https://github.com/mqyqingfeng/Blog/issues/15" target="_blank" rel="external">JavaScript深入之创建对象的多种方式以及优缺点</a></p>
-<h2 id="深入系列"><a href="#深入系列" class="headerlink" title="深入系列"></a>深入系列</h2><p>JavaScript深入系列目录地址：<a href="https://github.com/mqyqingfeng/Blog" target="_blank" rel="external">https://github.com/mqyqingfeng/Blog</a>。</p>
-<p>JavaScript深入系列预计写十五篇左右，旨在帮大家捋顺JavaScript底层知识，重点讲解如原型、作用域、执行上下文、变量对象、this、闭包、按值传递、call、apply、bind、new、继承等难点概念。</p>
-<p>如果有错误或者不严谨的地方，请务必给予指正，十分感谢。如果喜欢或者有所启发，欢迎star，对作者也是一种鼓励。</p>
-
-          
-        
-      
-    </div>
-
-    <div>
-      
-    </div>
-
-    <div>
-      
-    </div>
-
-    <div>
-      
-    </div>
-
-    <footer class="post-footer">
-      
-
-      
-
-      
-
-      
-      
-        <div class="post-eof"></div>
-      
-    </footer>
-  </article>
-
-
-    
-      
-
-  
-
-  
-  
-  
-
-  <article class="post post-type-normal " itemscope itemtype="http://schema.org/Article">
-    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2017/05/27/JavaScript深入之执行上下文栈/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="name" content="Bosn">
-      <meta itemprop="description" content="">
-      <meta itemprop="image" content="/images/html5.jpg">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="Bosn's Notes">
-    </span>
-
-    
-      <header class="post-header">
-
-        
-        
-          <h1 class="post-title" itemprop="name headline">
-            
-            
-              
-                
-                <a class="post-title-link" href="/2017/05/27/JavaScript深入之执行上下文栈/" itemprop="url">
-                  未命名
-                </a>
-              
-            
-          </h1>
-        
-
-        <div class="post-meta">
-          <span class="post-time">
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-calendar-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">发表于</span>
-              
-              <time title="创建于" itemprop="dateCreated datePublished" datetime="2017-05-27T21:01:58+08:00">
-                2017-05-27
-              </time>
-            
-
-            
-
-            
-          </span>
-
-          
-
-          
-            
-          
-
-          
-          
-
-          
-
-          
-
-          
-
-        </div>
-      </header>
-    
-
-
-    <div class="post-body" itemprop="articleBody">
-
-      
-      
-
-      
-        
-          
-            <h1 id="JavaScript深入之执行上下文栈"><a href="#JavaScript深入之执行上下文栈" class="headerlink" title="JavaScript深入之执行上下文栈"></a>JavaScript深入之执行上下文栈</h1><blockquote>
-<p>JavaScript深入系列第三篇，讲解执行上下文栈的是如何执行的，也回答了第二篇中的略难的思考题。</p>
-</blockquote>
-<h2 id="顺序执行？"><a href="#顺序执行？" class="headerlink" title="顺序执行？"></a>顺序执行？</h2><p>如果要问到 JavaScript 代码执行顺序的话，想必写过 JavaScript 的开发者都会有个直观的印象，那就是顺序执行，毕竟：</p>
-<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">var</span> foo = <span class="function"><span class="keyword">function</span> (<span class="params"></span>) </span>&#123;</div><div class="line"></div><div class="line">    <span class="built_in">console</span>.log(<span class="string">'foo1'</span>);</div><div class="line"></div><div class="line">&#125;</div><div class="line"></div><div class="line">foo();  <span class="comment">// foo1</span></div><div class="line"></div><div class="line"><span class="keyword">var</span> foo = <span class="function"><span class="keyword">function</span> (<span class="params"></span>) </span>&#123;</div><div class="line"></div><div class="line">    <span class="built_in">console</span>.log(<span class="string">'foo2'</span>);</div><div class="line"></div><div class="line">&#125;</div><div class="line"></div><div class="line">foo(); <span class="comment">// foo2</span></div></pre></td></tr></table></figure>
-<p>然而去看这段代码：</p>
-<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div></pre></td><td class="code"><pre><div class="line"></div><div class="line"><span class="function"><span class="keyword">function</span> <span class="title">foo</span>(<span class="params"></span>) </span>&#123;</div><div class="line"></div><div class="line">    <span class="built_in">console</span>.log(<span class="string">'foo1'</span>);</div><div class="line"></div><div class="line">&#125;</div><div class="line"></div><div class="line">foo();  <span class="comment">// foo2</span></div><div class="line"></div><div class="line"><span class="function"><span class="keyword">function</span> <span class="title">foo</span>(<span class="params"></span>) </span>&#123;</div><div class="line"></div><div class="line">    <span class="built_in">console</span>.log(<span class="string">'foo2'</span>);</div><div class="line"></div><div class="line">&#125;</div><div class="line"></div><div class="line">foo(); <span class="comment">// foo2</span></div></pre></td></tr></table></figure>
-<p>打印的结果却是两个 <code>foo2</code>。</p>
-<p>刷过面试题的都知道这是因为 JavaScript 引擎并非一行一行地分析和执行程序，而是一段一段地分析执行。当执行一段代码的时候，会进行一个“准备工作”，比如第一个例子中的变量提升，和第二个例子中的函数提升。</p>
-<p>但是本文真正想让大家思考的是：这个“一段一段”中的“段”究竟是怎么划分的呢？</p>
-<p>到底JavaScript引擎遇到一段怎样的代码时才会做“准备工作”呢？</p>
-<h2 id="可执行代码"><a href="#可执行代码" class="headerlink" title="可执行代码"></a>可执行代码</h2><p>这就要说到 JavaScript 的可执行代码(executable code)的类型有哪些了？</p>
-<p>其实很简单，就三种，全局代码、函数代码、eval代码。</p>
-<p>举个例子，当执行到一个函数的时候，就会进行准备工作，这里的“准备工作”，让我们用个更专业一点的说法，就叫做”执行上下文(execution contexts)”。</p>
-<h2 id="执行上下文栈"><a href="#执行上下文栈" class="headerlink" title="执行上下文栈"></a>执行上下文栈</h2><p>接下来问题来了，我们写的函数多了去了，如何管理创建的那么多执行上下文呢？</p>
-<p>所以 JavaScript 引擎创建了执行上下文栈（Execution context stack，ECS）来管理执行上下文</p>
-<p>为了模拟执行上下文栈的行为，让我们定义执行上下文栈是一个数组：</p>
-<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">ECStack = [];</div></pre></td></tr></table></figure>
-<p>试想当 JavaScript 开始要解释执行代码的时候，最先遇到的就是全局代码，所以初始化的时候首先就会向执行上下文栈压入一个全局执行上下文，我们用 globalContext 表示它，并且只有当整个应用程序结束的时候，ECStack 才会被清空，所以 ECStack 最底部永远有个 globalContext：</p>
-<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div></pre></td><td class="code"><pre><div class="line">ECStack = [</div><div class="line">    globalContext</div><div class="line">];</div></pre></td></tr></table></figure>
-<p>现在 JavaScript 遇到下面的这段代码了：</p>
-<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">function</span> <span class="title">fun3</span>(<span class="params"></span>) </span>&#123;</div><div class="line">    <span class="built_in">console</span>.log(<span class="string">'fun3'</span>)</div><div class="line">&#125;</div><div class="line"></div><div class="line"><span class="function"><span class="keyword">function</span> <span class="title">fun2</span>(<span class="params"></span>) </span>&#123;</div><div class="line">    fun3();</div><div class="line">&#125;</div><div class="line"></div><div class="line"><span class="function"><span class="keyword">function</span> <span class="title">fun1</span>(<span class="params"></span>) </span>&#123;</div><div class="line">    fun2();</div><div class="line">&#125;</div><div class="line"></div><div class="line">fun1();</div></pre></td></tr></table></figure>
-<p>当执行一个函数的时候，就会创建一个执行上下文，并且压入执行上下文栈，当函数执行完毕的时候，就会将函数的执行上下文从栈中弹出。知道了这样的工作原理，让我们来看看如何处理上面这段代码：</p>
-<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div></pre></td><td class="code"><pre><div class="line"><span class="comment">// 伪代码</span></div><div class="line"></div><div class="line"><span class="comment">// fun1()</span></div><div class="line">ECStack.push(&lt;fun1&gt; functionContext);</div><div class="line"></div><div class="line">// fun1中竟然调用了fun2，还要创建fun2的执行上下文</div><div class="line">ECStack.push(&lt;fun2&gt; functionContext);</div><div class="line"></div><div class="line">// 擦，fun2还调用了fun3！</div><div class="line">ECStack.push(&lt;fun3&gt; functionContext);</div><div class="line"></div><div class="line">// fun3执行完毕</div><div class="line">ECStack.pop();</div><div class="line"></div><div class="line">// fun2执行完毕</div><div class="line">ECStack.pop();</div><div class="line"></div><div class="line">// fun1执行完毕</div><div class="line">ECStack.pop();</div><div class="line"></div><div class="line">// javascript接着执行下面的代码，但是ECStack底层永远有个globalContext</div></pre></td></tr></table></figure>
-<h2 id="解答思考题"><a href="#解答思考题" class="headerlink" title="解答思考题"></a>解答思考题</h2><p>好啦，现在我们已经了解了执行上下文栈是如何处理执行上下文的，所以让我们看看上篇文章<a href="https://github.com/mqyqingfeng/Blog/issues/3" target="_blank" rel="external">《JavaScript深入之词法作用域和动态作用域》</a>最后的问题：</p>
-<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">var</span> scope = <span class="string">"global scope"</span>;</div><div class="line"><span class="function"><span class="keyword">function</span> <span class="title">checkscope</span>(<span class="params"></span>)</span>&#123;</div><div class="line">    <span class="keyword">var</span> scope = <span class="string">"local scope"</span>;</div><div class="line">    <span class="function"><span class="keyword">function</span> <span class="title">f</span>(<span class="params"></span>)</span>&#123;</div><div class="line">        <span class="keyword">return</span> scope;</div><div class="line">    &#125;</div><div class="line">    <span class="keyword">return</span> f();</div><div class="line">&#125;</div><div class="line">checkscope();</div></pre></td></tr></table></figure>
-<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">var</span> scope = <span class="string">"global scope"</span>;</div><div class="line"><span class="function"><span class="keyword">function</span> <span class="title">checkscope</span>(<span class="params"></span>)</span>&#123;</div><div class="line">    <span class="keyword">var</span> scope = <span class="string">"local scope"</span>;</div><div class="line">    <span class="function"><span class="keyword">function</span> <span class="title">f</span>(<span class="params"></span>)</span>&#123;</div><div class="line">        <span class="keyword">return</span> scope;</div><div class="line">    &#125;</div><div class="line">    <span class="keyword">return</span> f;</div><div class="line">&#125;</div><div class="line">checkscope()();</div></pre></td></tr></table></figure>
-<p>两段代码执行的结果一样，但是两段代码究竟有哪些不同呢？</p>
-<p>答案就是执行上下文栈的变化不一样。</p>
-<p>让我们模拟第一段代码：</p>
-<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div></pre></td><td class="code"><pre><div class="line">ECStack.push(&lt;checkscope&gt; functionContext);</div><div class="line">ECStack.push(&lt;f&gt; functionContext);</div><div class="line">ECStack.pop();</div><div class="line">ECStack.pop();</div></pre></td></tr></table></figure>
-<p>让我们模拟第二段代码：</p>
-<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div></pre></td><td class="code"><pre><div class="line">ECStack.push(&lt;checkscope&gt; functionContext);</div><div class="line">ECStack.pop();</div><div class="line">ECStack.push(&lt;f&gt; functionContext);</div><div class="line">ECStack.pop();</div></pre></td></tr></table></figure>
-<p>是不是有些不同呢？</p>
-<p>当然了，这样概括的回答执行上下文栈的变化不同，是不是依然有一种意犹未尽的感觉呢，为了更详细讲解两个函数执行上的区别，我们需要探究一下执行上下文到底包含了哪些内容，所以欢迎阅读下一篇《JavaScript深入之变量对象》。</p>
-<h2 id="下一篇文章"><a href="#下一篇文章" class="headerlink" title="下一篇文章"></a>下一篇文章</h2><p><a href="https://github.com/mqyqingfeng/Blog/issues/5" target="_blank" rel="external">《JavaScript深入之变量对象》</a></p>
 <h2 id="深入系列"><a href="#深入系列" class="headerlink" title="深入系列"></a>深入系列</h2><p>JavaScript深入系列目录地址：<a href="https://github.com/mqyqingfeng/Blog" target="_blank" rel="external">https://github.com/mqyqingfeng/Blog</a>。</p>
 <p>JavaScript深入系列预计写十五篇左右，旨在帮大家捋顺JavaScript底层知识，重点讲解如原型、作用域、执行上下文、变量对象、this、闭包、按值传递、call、apply、bind、new、继承等难点概念。</p>
 <p>如果有错误或者不严谨的地方，请务必给予指正，十分感谢。如果喜欢或者有所启发，欢迎star，对作者也是一种鼓励。</p>
@@ -880,7 +695,8 @@
       
         
           
-            <h1 id="JavaScript深入之继承的多种方式和优缺点"><a href="#JavaScript深入之继承的多种方式和优缺点" class="headerlink" title="JavaScript深入之继承的多种方式和优缺点"></a>JavaScript深入之继承的多种方式和优缺点</h1><blockquote>
+            <p>title:JavaScript深入之继承的多种方式和优缺点</p>
+<blockquote>
 <p>JavaScript深入系列第十五篇，讲解JavaScript各种继承方式和优缺点。</p>
 </blockquote>
 <h2 id="写在前面"><a href="#写在前面" class="headerlink" title="写在前面"></a>写在前面</h2><p>本文讲解JavaScript各种继承方式和优缺点。</p>
@@ -1057,7 +873,8 @@
       
         
           
-            <h1 id="JavaScript深入之词法作用域和动态作用域"><a href="#JavaScript深入之词法作用域和动态作用域" class="headerlink" title="JavaScript深入之词法作用域和动态作用域"></a>JavaScript深入之词法作用域和动态作用域</h1><blockquote>
+            <p>title:JavaScript深入之词法作用域和动态作用域</p>
+<blockquote>
 <p>JavaScript深入系列的第二篇，JavaScript采用词法作用域，什么语言采用了动态作用域？两者的区别又是什么？还有一个略难的思考题，快来看看吧。</p>
 </blockquote>
 <h2 id="作用域"><a href="#作用域" class="headerlink" title="作用域"></a>作用域</h2><p>作用域是指程序源代码中定义变量的区域。</p>
@@ -1088,6 +905,223 @@
 <p>虽然两段代码执行的结果一样，但是两段代码究竟有哪些不同呢？</p>
 <p>如果要回答这个问题，就要牵涉到很多的内容，词法作用域只是其中的一小部分，让我们期待下一篇文章————《JavaScript深入之执行上下文栈》。</p>
 <h2 id="下一篇文章"><a href="#下一篇文章" class="headerlink" title="下一篇文章"></a>下一篇文章</h2><p><a href="https://github.com/mqyqingfeng/Blog/issues/4" target="_blank" rel="external">JavaScript深入之执行上下文栈</a></p>
+<h2 id="深入系列"><a href="#深入系列" class="headerlink" title="深入系列"></a>深入系列</h2><p>JavaScript深入系列目录地址：<a href="https://github.com/mqyqingfeng/Blog" target="_blank" rel="external">https://github.com/mqyqingfeng/Blog</a>。</p>
+<p>JavaScript深入系列预计写十五篇左右，旨在帮大家捋顺JavaScript底层知识，重点讲解如原型、作用域、执行上下文、变量对象、this、闭包、按值传递、call、apply、bind、new、继承等难点概念。</p>
+<p>如果有错误或者不严谨的地方，请务必给予指正，十分感谢。如果喜欢或者有所启发，欢迎star，对作者也是一种鼓励。</p>
+
+          
+        
+      
+    </div>
+
+    <div>
+      
+    </div>
+
+    <div>
+      
+    </div>
+
+    <div>
+      
+    </div>
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </article>
+
+
+    
+      
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal " itemscope itemtype="http://schema.org/Article">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2017/05/27/JavaScript深入之闭包/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Bosn">
+      <meta itemprop="description" content="">
+      <meta itemprop="image" content="/images/html5.jpg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Bosn's Notes">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+            
+            
+              
+                
+                <a class="post-title-link" href="/2017/05/27/JavaScript深入之闭包/" itemprop="url">
+                  未命名
+                </a>
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2017-05-27T21:01:58+08:00">
+                2017-05-27
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          
+            <p>title:JavaScript深入之闭包</p>
+<blockquote>
+<p>JavaScript深入系列第八篇，介绍理论上的闭包和实践上的闭包，以及从作用域链的角度解析经典的闭包题。</p>
+</blockquote>
+<h2 id="定义"><a href="#定义" class="headerlink" title="定义"></a>定义</h2><p>MDN 对闭包的定义为：</p>
+<blockquote>
+<p>闭包是指那些能够访问自由变量的函数。</p>
+</blockquote>
+<p>那什么是自由变量呢？</p>
+<blockquote>
+<p>自由变量是指在函数中使用的，但既不是函数参数也不是函数的局部变量的变量。</p>
+</blockquote>
+<p>由此，我们可以看出闭包共有两部分组成：</p>
+<blockquote>
+<p>闭包 = 函数 + 函数能够访问的自由变量</p>
+</blockquote>
+<p>举个例子：</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">var</span> a = <span class="number">1</span>;</div><div class="line"></div><div class="line"><span class="function"><span class="keyword">function</span> <span class="title">foo</span>(<span class="params"></span>) </span>&#123;</div><div class="line">    <span class="built_in">console</span>.log(a);</div><div class="line">&#125;</div><div class="line"></div><div class="line">foo();</div></pre></td></tr></table></figure>
+<p>foo 函数可以访问变量 a，但是 a 既不是 foo 函数的局部变量，也不是 foo 函数的参数，所以 a 就是自由变量。</p>
+<p>那么，函数 foo + foo 函数访问的自由变量 a 不就是构成了一个闭包嘛……</p>
+<p>还真是这样的！</p>
+<p>所以在《JavaScript权威指南》中就讲到：从技术的角度讲，所有的JavaScript函数都是闭包。</p>
+<p>咦，这怎么跟我们平时看到的讲到的闭包不一样呢！？</p>
+<p>别着急，这是理论上的闭包，其实还有一个实践角度上的闭包，让我们看看汤姆大叔翻译的关于闭包的文章中的定义：</p>
+<p>ECMAScript中，闭包指的是：</p>
+<ol>
+<li>从理论角度：所有的函数。因为它们都在创建的时候就将上层上下文的数据保存起来了。哪怕是简单的全局变量也是如此，因为函数中访问全局变量就相当于是在访问自由变量，这个时候使用最外层的作用域。</li>
+<li>从实践角度：以下函数才算是闭包：<ol>
+<li>即使创建它的上下文已经销毁，它仍然存在（比如，内部函数从父函数中返回）</li>
+<li>在代码中引用了自由变量</li>
+</ol>
+</li>
+</ol>
+<p>接下来就来讲讲实践上的闭包。</p>
+<h2 id="分析"><a href="#分析" class="headerlink" title="分析"></a>分析</h2><p>让我们先写个例子，例子依然是来自《JavaScript权威指南》，稍微做点改动：</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">var</span> scope = <span class="string">"global scope"</span>;</div><div class="line"><span class="function"><span class="keyword">function</span> <span class="title">checkscope</span>(<span class="params"></span>)</span>&#123;</div><div class="line">    <span class="keyword">var</span> scope = <span class="string">"local scope"</span>;</div><div class="line">    <span class="function"><span class="keyword">function</span> <span class="title">f</span>(<span class="params"></span>)</span>&#123;</div><div class="line">        <span class="keyword">return</span> scope;</div><div class="line">    &#125;</div><div class="line">    <span class="keyword">return</span> f;</div><div class="line">&#125;</div><div class="line"></div><div class="line"><span class="keyword">var</span> foo = checkscope();</div><div class="line">foo();</div></pre></td></tr></table></figure>
+<p>首先我们要分析一下这段代码中执行上下文栈和执行上下文的变化情况。</p>
+<p>另一个与这段代码相似的例子，在<a href="https://github.com/mqyqingfeng/Blog/issues/8" target="_blank" rel="external">《JavaScript深入之执行上下文》</a>中有着非常详细的分析。如果看不懂以下的执行过程，建议先阅读这篇文章。</p>
+<p>这里直接给出简要的执行过程：</p>
+<ol>
+<li>进入全局代码，创建全局执行上下文，全局执行上下文压入执行上下文栈</li>
+<li>全局执行上下文初始化</li>
+<li>执行 checkscope 函数，创建 checkscope 函数执行上下文，checkscope 执行上下文被压入执行上下文栈</li>
+<li>checkscope 执行上下文初始化，创建变量对象、作用域链、this等</li>
+<li>checkscope 函数执行完毕，checkscope 执行上下文从执行上下文栈中弹出</li>
+<li>执行 f 函数，创建 f 函数执行上下文，f 执行上下文被压入执行上下文栈</li>
+<li>f 执行上下文初始化，创建变量对象、作用域链、this等</li>
+<li>f 函数执行完毕，f 函数上下文从执行上下文栈中弹出</li>
+</ol>
+<p>了解到这个过程，我们应该思考一个问题，那就是：</p>
+<p>当 f 函数执行的时候，checkscope 函数上下文已经被销毁了啊(即从执行上下文栈中被弹出)，怎么还会读取到 checkscope 作用域下的 scope 值呢？</p>
+<p>以上的代码，要是转换成 PHP，就会报错，因为在 PHP 中，f 函数只能读取到自己作用域和全局作用域里的值，所以读不到 checkscope 下的 scope 值。(这段我问的PHP同事……)</p>
+<p>然而 JavaScript 却是可以的！</p>
+<p>当我们了解了具体的执行过程后，我们知道 f 执行上下文维护了一个作用域链：</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div></pre></td><td class="code"><pre><div class="line">fContext = &#123;</div><div class="line">    <span class="attr">Scope</span>: [AO, checkscopeContext.AO, globalContext.VO],</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>对的，就是因为这个作用域链，f 函数依然可以读取到 checkscopeContext.AO 的值，说明当 f 函数引用了 checkscopeContext.AO 中的值的时候，即使 checkscopeContext 被销毁了，但是 JavaScript 依然会让 checkscopeContext.AO 活在内存中，f 函数依然可以通过 f 函数的作用域链找到它，正是因为 JavaScript 做到了这一点，从而实现了闭包这个概念。</p>
+<p>所以，让我们再看一遍实践角度上闭包的定义：</p>
+<ol>
+<li>即使创建它的上下文已经销毁，它仍然存在（比如，内部函数从父函数中返回）</li>
+<li>在代码中引用了自由变量</li>
+</ol>
+<p>在这里再补充一个《JavaScript权威指南》英文原版对闭包的定义:</p>
+<blockquote>
+<p>This combination of a function object and a scope (a set of variable bindings) in which the function’s variables are resolved is called a closure in the computer science literature.</p>
+</blockquote>
+<p>闭包在计算机科学中也只是一个普通的概念，大家不要去想得太复杂。</p>
+<h2 id="必刷题"><a href="#必刷题" class="headerlink" title="必刷题"></a>必刷题</h2><p>接下来，看这道刷题必刷，面试必考的闭包题：</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">var</span> data = [];</div><div class="line"></div><div class="line"><span class="keyword">for</span> (<span class="keyword">var</span> i = <span class="number">0</span>; i &lt; <span class="number">3</span>; i++) &#123;</div><div class="line">  data[i] = <span class="function"><span class="keyword">function</span> (<span class="params"></span>) </span>&#123;</div><div class="line">    <span class="built_in">console</span>.log(i);</div><div class="line">  &#125;;</div><div class="line">&#125;</div><div class="line"></div><div class="line">data[<span class="number">0</span>]();</div><div class="line">data[<span class="number">1</span>]();</div><div class="line">data[<span class="number">2</span>]();</div></pre></td></tr></table></figure>
+<p>答案是都是 3，让我们分析一下原因：</p>
+<p>当执行到 data[0] 函数之前，此时全局上下文的 VO 为：</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div></pre></td><td class="code"><pre><div class="line">globalContext = &#123;</div><div class="line">    <span class="attr">VO</span>: &#123;</div><div class="line">        <span class="attr">data</span>: [...],</div><div class="line">        <span class="attr">i</span>: <span class="number">3</span></div><div class="line">    &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>当执行 data[0] 函数的时候，data[0] 函数的作用域链为：</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div></pre></td><td class="code"><pre><div class="line">data[<span class="number">0</span>]Context = &#123;</div><div class="line">    <span class="attr">Scope</span>: [AO, globalContext.VO]</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>data[0]Context 的 AO 并没有 i 值，所以会从 globalContext.VO 中查找，i 为 3，所以打印的结果就是 3。</p>
+<p>data[1] 和 data[2] 是一样的道理。</p>
+<p>所以让我们改成闭包看看：</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">var</span> data = [];</div><div class="line"></div><div class="line"><span class="keyword">for</span> (<span class="keyword">var</span> i = <span class="number">0</span>; i &lt; <span class="number">3</span>; i++) &#123;</div><div class="line">  data[i] = (<span class="function"><span class="keyword">function</span> (<span class="params">i</span>) </span>&#123;</div><div class="line">        <span class="keyword">return</span> <span class="function"><span class="keyword">function</span>(<span class="params"></span>)</span>&#123;</div><div class="line">            <span class="built_in">console</span>.log(i);</div><div class="line">        &#125;</div><div class="line">  &#125;)(i);</div><div class="line">&#125;</div><div class="line"></div><div class="line">data[<span class="number">0</span>]();</div><div class="line">data[<span class="number">1</span>]();</div><div class="line">data[<span class="number">2</span>]();</div></pre></td></tr></table></figure>
+<p>当执行到 data[0] 函数之前，此时全局上下文的 VO 为：</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div></pre></td><td class="code"><pre><div class="line">globalContext = &#123;</div><div class="line">    <span class="attr">VO</span>: &#123;</div><div class="line">        <span class="attr">data</span>: [...],</div><div class="line">        <span class="attr">i</span>: <span class="number">3</span></div><div class="line">    &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>跟没改之前一模一样。</p>
+<p>当执行 data[0] 函数的时候，data[0] 函数的作用域链发生了改变：</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div></pre></td><td class="code"><pre><div class="line">data[<span class="number">0</span>]Context = &#123;</div><div class="line">    <span class="attr">Scope</span>: [AO, 匿名函数Context.AO globalContext.VO]</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>匿名函数执行上下文的 AO 为：</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div></pre></td><td class="code"><pre><div class="line">匿名函数Context = &#123;</div><div class="line">    <span class="attr">AO</span>: &#123;</div><div class="line">        <span class="attr">arguments</span>: &#123;</div><div class="line">            <span class="number">0</span>: <span class="number">0</span>,</div><div class="line">            <span class="attr">length</span>: <span class="number">1</span></div><div class="line">        &#125;,</div><div class="line">        <span class="attr">i</span>: <span class="number">0</span></div><div class="line">    &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>data[0]Context 的 AO 并没有 i 值，所以会沿着作用域链从匿名函数 Context.AO 中查找，这时候就会找 i 为 0，找到了就不会往 globalContext.VO 中查找了，即使 globalContext.VO 也有 i 的值(值为3)，所以打印的结果就是 0。</p>
+<p>data[1] 和 data[2] 是一样的道理。</p>
+<h2 id="下一篇文章"><a href="#下一篇文章" class="headerlink" title="下一篇文章"></a>下一篇文章</h2><p><a href="https://github.com/mqyqingfeng/Blog/issues/10" target="_blank" rel="external">JavaScript深入之参数按值传递</a></p>
+<h2 id="相关链接"><a href="#相关链接" class="headerlink" title="相关链接"></a>相关链接</h2><p>如果想了解执行上下文的具体变化，不妨循序渐进，阅读这六篇：</p>
+<p><a href="https://github.com/mqyqingfeng/Blog/issues/3" target="_blank" rel="external">《JavaScript深入之词法作用域和动态作用域》</a></p>
+<p><a href="https://github.com/mqyqingfeng/Blog/issues/4" target="_blank" rel="external">《JavaScript深入之执行上下文栈》</a></p>
+<p><a href="https://github.com/mqyqingfeng/Blog/issues/5" target="_blank" rel="external">《JavaScript深入之变量对象》</a></p>
+<p><a href="https://github.com/mqyqingfeng/Blog/issues/6" target="_blank" rel="external">《JavaScript深入之作用域链》</a></p>
+<p><a href="https://github.com/mqyqingfeng/Blog/issues/7" target="_blank" rel="external">《JavaScript深入之从ECMAScript规范解读this》</a></p>
+<p><a href="https://github.com/mqyqingfeng/Blog/issues/8" target="_blank" rel="external">《JavaScript深入之执行上下文》</a></p>
 <h2 id="深入系列"><a href="#深入系列" class="headerlink" title="深入系列"></a>深入系列</h2><p>JavaScript深入系列目录地址：<a href="https://github.com/mqyqingfeng/Blog" target="_blank" rel="external">https://github.com/mqyqingfeng/Blog</a>。</p>
 <p>JavaScript深入系列预计写十五篇左右，旨在帮大家捋顺JavaScript底层知识，重点讲解如原型、作用域、执行上下文、变量对象、this、闭包、按值传递、call、apply、bind、new、继承等难点概念。</p>
 <p>如果有错误或者不严谨的地方，请务必给予指正，十分感谢。如果喜欢或者有所启发，欢迎star，对作者也是一种鼓励。</p>

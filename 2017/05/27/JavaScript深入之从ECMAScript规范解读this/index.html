@@ -105,28 +105,28 @@
 
 
 
-<meta name="description" content="JavaScript深入之从ECMAScript规范解读this
+<meta name="description" content="title:JavaScript深入之从ECMAScript规范解读this
+
 JavaScript深入系列第六篇，本篇我们追根溯源，从ECMAScript5规范解读this在函数调用时到底是如何确定的。
 
-前言在《JavaScript深入之执行上下文栈》中讲到，当JavaScript代码执行一段可执行代码(executable code)时，会创建对应的执行上下文(execution context)。
-对于">
+前言在《JavaScript深入之执行上下文栈》中讲到，当JavaScript代码执行一段可执行代码(executable code)时，会创建对应的执行上下文(execution conte">
 <meta property="og:type" content="article">
 <meta property="og:title" content="Bosn's Notes">
 <meta property="og:url" content="http://yoursite.com/2017/05/27/JavaScript深入之从ECMAScript规范解读this/index.html">
 <meta property="og:site_name" content="Bosn's Notes">
-<meta property="og:description" content="JavaScript深入之从ECMAScript规范解读this
+<meta property="og:description" content="title:JavaScript深入之从ECMAScript规范解读this
+
 JavaScript深入系列第六篇，本篇我们追根溯源，从ECMAScript5规范解读this在函数调用时到底是如何确定的。
 
-前言在《JavaScript深入之执行上下文栈》中讲到，当JavaScript代码执行一段可执行代码(executable code)时，会创建对应的执行上下文(execution context)。
-对于">
-<meta property="og:updated_time" content="2017-05-27T13:01:58.000Z">
+前言在《JavaScript深入之执行上下文栈》中讲到，当JavaScript代码执行一段可执行代码(executable code)时，会创建对应的执行上下文(execution conte">
+<meta property="og:updated_time" content="2017-05-27T13:27:24.000Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Bosn's Notes">
-<meta name="twitter:description" content="JavaScript深入之从ECMAScript规范解读this
+<meta name="twitter:description" content="title:JavaScript深入之从ECMAScript规范解读this
+
 JavaScript深入系列第六篇，本篇我们追根溯源，从ECMAScript5规范解读this在函数调用时到底是如何确定的。
 
-前言在《JavaScript深入之执行上下文栈》中讲到，当JavaScript代码执行一段可执行代码(executable code)时，会创建对应的执行上下文(execution context)。
-对于">
+前言在《JavaScript深入之执行上下文栈》中讲到，当JavaScript代码执行一段可执行代码(executable code)时，会创建对应的执行上下文(execution conte">
 
 
 
@@ -361,7 +361,8 @@ JavaScript深入系列第六篇，本篇我们追根溯源，从ECMAScript5规�
       
 
       
-        <h1 id="JavaScript深入之从ECMAScript规范解读this"><a href="#JavaScript深入之从ECMAScript规范解读this" class="headerlink" title="JavaScript深入之从ECMAScript规范解读this"></a>JavaScript深入之从ECMAScript规范解读this</h1><blockquote>
+        <p>title:JavaScript深入之从ECMAScript规范解读this</p>
+<blockquote>
 <p>JavaScript深入系列第六篇，本篇我们追根溯源，从ECMAScript5规范解读this在函数调用时到底是如何确定的。</p>
 </blockquote>
 <h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>在<a href="https://github.com/mqyqingfeng/Blog/issues/4" target="_blank" rel="external">《JavaScript深入之执行上下文栈》</a>中讲到，当JavaScript代码执行一段可执行代码(executable code)时，会创建对应的执行上下文(execution context)。</p>
@@ -453,8 +454,9 @@ JavaScript深入系列第六篇，本篇我们追根溯源，从ECMAScript5规�
 b.Else, the base of ref is an Environment Record
 
     i.Let thisValue be the result of calling the ImplicitThisValue concrete method of GetBase(ref).
-</code></pre><p>7.Else, Type(<em>ref</em>) is not Reference.</p>
-<pre><code>a. Let thisValue be undefined.
+    7.Else, Type(*ref*) is not Reference.
+
+a. Let thisValue be undefined.
 </code></pre></blockquote>
 <p>让我们描述一下：</p>
 <p>1.计算 MemberExpression 的结果赋值给 ref</p>
@@ -598,7 +600,7 @@ b.Else, the base of ref is an Environment Record
         <div class="post-nav">
           <div class="post-nav-next post-nav-item">
             
-              <a href="/2017/05/27/JavaScript深入之从原型到原型链/" rel="next" title="">
+              <a href="/2017/05/27/JavaScript深入之作用域链/" rel="next" title="">
                 <i class="fa fa-chevron-left"></i> 
               </a>
             
@@ -608,7 +610,7 @@ b.Else, the base of ref is an Environment Record
 
           <div class="post-nav-prev post-nav-item">
             
-              <a href="/2017/05/27/JavaScript深入之bind的模拟实现/" rel="prev" title="">
+              <a href="/2017/05/27/JavaScript深入之从原型到原型链/" rel="prev" title="">
                  <i class="fa fa-chevron-right"></i>
               </a>
             
@@ -788,7 +790,7 @@ b.Else, the base of ref is an Environment Record
             
 
             
-              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#JavaScript深入之从ECMAScript规范解读this"><span class="nav-number">1.</span> <span class="nav-text">JavaScript深入之从ECMAScript规范解读this</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#前言"><span class="nav-number">1.1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Types"><span class="nav-number">1.2.</span> <span class="nav-text">Types</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Reference"><span class="nav-number">1.3.</span> <span class="nav-text">Reference</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#GetValue"><span class="nav-number">1.4.</span> <span class="nav-text">GetValue</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#如何确定this的值"><span class="nav-number">1.5.</span> <span class="nav-text">如何确定this的值</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#具体分析"><span class="nav-number">1.6.</span> <span class="nav-text">具体分析</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#foo-bar"><span class="nav-number">1.6.1.</span> <span class="nav-text">foo.bar()</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#foo-bar-1"><span class="nav-number">1.6.2.</span> <span class="nav-text">(foo.bar)()</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#foo-bar-foo-bar"><span class="nav-number">1.6.3.</span> <span class="nav-text">(foo.bar = foo.bar)()</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#false-foo-bar"><span class="nav-number">1.6.4.</span> <span class="nav-text">(false || foo.bar)()</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#foo-bar-foo-bar-1"><span class="nav-number">1.6.5.</span> <span class="nav-text">(foo.bar, foo.bar)()</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#揭晓结果"><span class="nav-number">1.6.6.</span> <span class="nav-text">揭晓结果</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#补充"><span class="nav-number">1.6.7.</span> <span class="nav-text">补充</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#多说一句"><span class="nav-number">1.7.</span> <span class="nav-text">多说一句</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#下一篇文章"><span class="nav-number">1.8.</span> <span class="nav-text">下一篇文章</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#深入系列"><span class="nav-number">1.9.</span> <span class="nav-text">深入系列</span></a></li></ol></li></ol></div>
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#前言"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Types"><span class="nav-number">2.</span> <span class="nav-text">Types</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Reference"><span class="nav-number">3.</span> <span class="nav-text">Reference</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#GetValue"><span class="nav-number">4.</span> <span class="nav-text">GetValue</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#如何确定this的值"><span class="nav-number">5.</span> <span class="nav-text">如何确定this的值</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#具体分析"><span class="nav-number">6.</span> <span class="nav-text">具体分析</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#foo-bar"><span class="nav-number">6.1.</span> <span class="nav-text">foo.bar()</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#foo-bar-1"><span class="nav-number">6.2.</span> <span class="nav-text">(foo.bar)()</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#foo-bar-foo-bar"><span class="nav-number">6.3.</span> <span class="nav-text">(foo.bar = foo.bar)()</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#false-foo-bar"><span class="nav-number">6.4.</span> <span class="nav-text">(false || foo.bar)()</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#foo-bar-foo-bar-1"><span class="nav-number">6.5.</span> <span class="nav-text">(foo.bar, foo.bar)()</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#揭晓结果"><span class="nav-number">6.6.</span> <span class="nav-text">揭晓结果</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#补充"><span class="nav-number">6.7.</span> <span class="nav-text">补充</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#多说一句"><span class="nav-number">7.</span> <span class="nav-text">多说一句</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#下一篇文章"><span class="nav-number">8.</span> <span class="nav-text">下一篇文章</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#深入系列"><span class="nav-number">9.</span> <span class="nav-text">深入系列</span></a></li></ol></div>
             
 
           </div>
