@@ -1,818 +1,986 @@
-<!doctype html>
-
-
-
-  
-
-
-<html class="theme-next pisces use-motion" lang="zh-Hans">
+<!DOCTYPE html>
+<html>
 <head>
-  <meta charset="UTF-8"/>
-<meta http-equiv="X-UA-Compatible" content="IE=edge" />
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
-
-
-
-<meta http-equiv="Cache-Control" content="no-transform" />
-<meta http-equiv="Cache-Control" content="no-siteapp" />
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-  
-  <link href="/lib/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css" />
-
-
-
-
-  
-  
-  
-  
-
-  
-    
-    
-  
-
-  
-    
-      
-    
-
-    
-  
-
-  
-
-  
-    
-      
-    
-
-    
-  
-
-  
-    
-      
-    
-
-    
-  
-
-  
-    
-    
-    <link href="//fonts.googleapis.com/css?family=Monda:300,300italic,400,400italic,700,700italic|Roboto Slab:300,300italic,400,400italic,700,700italic|Lobster Two:300,300italic,400,400italic,700,700italic|PT Mono:300,300italic,400,400italic,700,700italic&subset=latin,latin-ext" rel="stylesheet" type="text/css">
-  
-
-
-
-
-
-
-<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css" />
-
-<link href="/css/main.css?v=5.1.0" rel="stylesheet" type="text/css" />
-
-
-  <meta name="keywords" content="Hexo, NexT" />
-
-
-
-
-
-
-
-
-  <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico?v=5.1.0" />
-
-
-
-
-
-
-<meta name="description" content="JavaScript深入系列的第二篇，JavaScript采用词法作用域，什么语言采用了动态作用域？两者的区别又是什么？还有一个略难的思考题，快来看看吧。
-
-作用域作用域是指程序源代码中定义变量的区域。
-作用域规定了如何查找变量，也就是确定当前执行代码对变量的访问权限。
-JavaScript 采用词法作用域(lexical scoping)，也就是静态作用域。
-静态作用域与动态作用域因为 Jav">
-<meta property="og:type" content="article">
-<meta property="og:title" content="JavaScript深入之词法作用域和动态作用域">
-<meta property="og:url" content="http://yoursite.com/2017/05/27/JavaScript深入之词法作用域和动态作用域/index.html">
-<meta property="og:site_name" content="Bosn's Notes">
-<meta property="og:description" content="JavaScript深入系列的第二篇，JavaScript采用词法作用域，什么语言采用了动态作用域？两者的区别又是什么？还有一个略难的思考题，快来看看吧。
-
-作用域作用域是指程序源代码中定义变量的区域。
-作用域规定了如何查找变量，也就是确定当前执行代码对变量的访问权限。
-JavaScript 采用词法作用域(lexical scoping)，也就是静态作用域。
-静态作用域与动态作用域因为 Jav">
-<meta property="og:updated_time" content="2017-05-27T13:43:39.000Z">
-<meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="JavaScript深入之词法作用域和动态作用域">
-<meta name="twitter:description" content="JavaScript深入系列的第二篇，JavaScript采用词法作用域，什么语言采用了动态作用域？两者的区别又是什么？还有一个略难的思考题，快来看看吧。
-
-作用域作用域是指程序源代码中定义变量的区域。
-作用域规定了如何查找变量，也就是确定当前执行代码对变量的访问权限。
-JavaScript 采用词法作用域(lexical scoping)，也就是静态作用域。
-静态作用域与动态作用域因为 Jav">
-
-
-
-<script type="text/javascript" id="hexo.configurations">
-  var NexT = window.NexT || {};
-  var CONFIG = {
-    root: '/',
-    scheme: 'Pisces',
-    sidebar: {"position":"right","display":"post","offset":12,"offset_float":0,"b2t":false,"scrollpercent":false},
-    fancybox: true,
-    motion: true,
-    duoshuo: {
-      userId: '0',
-      author: '博主'
-    },
-    algolia: {
-      applicationID: '',
-      apiKey: '',
-      indexName: '',
-      hits: {"per_page":10},
-      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
-    }
-  };
-</script>
-
-
-
-  <link rel="canonical" href="http://yoursite.com/2017/05/27/JavaScript深入之词法作用域和动态作用域/"/>
-
-
-
-
-
-  <title> JavaScript深入之词法作用域和动态作用域 | Bosn's Notes </title>
-</head>
-
-<body itemscope itemtype="http://schema.org/WebPage" lang="zh-Hans">
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-  
-    
-  
-
-  <div class="container sidebar-position-right page-post-detail ">
-    <div class="headband"></div>
-
-    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
-      <div class="header-inner"><div class="site-brand-wrapper">
-  <div class="site-meta ">
-    
-
-    <div class="custom-logo-site-title">
-      <a href="/"  class="brand" rel="start">
-        <span class="logo-line-before"><i></i></span>
-        <span class="site-title">Bosn's Notes</span>
-        <span class="logo-line-after"><i></i></span>
-      </a>
-    </div>
-      
-        <p class="site-subtitle">Keep It Simple, Stupid.</p>
-      
-  </div>
-
-  <div class="site-nav-toggle">
-    <button>
-      <span class="btn-bar"></span>
-      <span class="btn-bar"></span>
-      <span class="btn-bar"></span>
-    </button>
-  </div>
-</div>
-
-<nav class="site-nav">
-  
-
-  
-    <ul id="menu" class="menu">
-      
-        
-        <li class="menu-item menu-item-home">
-          <a href="/" rel="section">
-            
-              <i class="menu-item-icon fa fa-fw fa-home"></i> <br />
-            
-            首页
-          </a>
-        </li>
-      
-        
-        <li class="menu-item menu-item-categories">
-          <a href="/categories" rel="section">
-            
-              <i class="menu-item-icon fa fa-fw fa-th"></i> <br />
-            
-            分类
-          </a>
-        </li>
-      
-        
-        <li class="menu-item menu-item-archives">
-          <a href="/archives" rel="section">
-            
-              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br />
-            
-            归档
-          </a>
-        </li>
-      
-        
-        <li class="menu-item menu-item-tags">
-          <a href="/tags" rel="section">
-            
-              <i class="menu-item-icon fa fa-fw fa-tags"></i> <br />
-            
-            标签
-          </a>
-        </li>
-      
-
-      
-    </ul>
-  
-
-  
-</nav>
-
-
-
- </div>
-    </header>
-
-    <main id="main" class="main">
-      <div class="main-inner">
-        <div class="content-wrap">
-          <div id="content" class="content">
-            
-
-  <div id="posts" class="posts-expand">
-    
-
-  
-
-  
-  
-  
-
-  <article class="post post-type-normal " itemscope itemtype="http://schema.org/Article">
-    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2017/05/27/JavaScript深入之词法作用域和动态作用域/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="name" content="Bosn">
-      <meta itemprop="description" content="">
-      <meta itemprop="image" content="/images/html5.jpg">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="Bosn's Notes">
-    </span>
-
-    
-      <header class="post-header">
-
-        
-        
-          <h1 class="post-title" itemprop="name headline">
-            
-            
-              
-                JavaScript深入之词法作用域和动态作用域
-              
-            
-          </h1>
-        
-
-        <div class="post-meta">
-          <span class="post-time">
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-calendar-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">发表于</span>
-              
-              <time title="创建于" itemprop="dateCreated datePublished" datetime="2017-05-27T21:01:58+08:00">
-                2017-05-27
-              </time>
-            
-
-            
-
-            
-          </span>
-
-          
-
-          
-            
-          
-
-          
-          
-
-          
-
-          
-
-          
-
-        </div>
-      </header>
-    
-
-
-    <div class="post-body" itemprop="articleBody">
-
-      
-      
-
-      
-        <blockquote>
-<p>JavaScript深入系列的第二篇，JavaScript采用词法作用域，什么语言采用了动态作用域？两者的区别又是什么？还有一个略难的思考题，快来看看吧。</p>
-</blockquote>
-<h2 id="作用域"><a href="#作用域" class="headerlink" title="作用域"></a>作用域</h2><p>作用域是指程序源代码中定义变量的区域。</p>
-<p>作用域规定了如何查找变量，也就是确定当前执行代码对变量的访问权限。</p>
-<p>JavaScript 采用词法作用域(lexical scoping)，也就是静态作用域。</p>
-<h2 id="静态作用域与动态作用域"><a href="#静态作用域与动态作用域" class="headerlink" title="静态作用域与动态作用域"></a>静态作用域与动态作用域</h2><p>因为 JavaScript 采用的是词法作用域，函数的作用域在函数定义的时候就决定了。</p>
-<p>而与词法作用域相对的是动态作用域，函数的作用域是在函数调用的时候才决定的。</p>
-<p>让我们认真看个例子就能明白之间的区别：</p>
-<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">var</span> value = <span class="number">1</span>;</div><div class="line"></div><div class="line"><span class="function"><span class="keyword">function</span> <span class="title">foo</span>(<span class="params"></span>) </span>&#123;</div><div class="line">    <span class="built_in">console</span>.log(value);</div><div class="line">&#125;</div><div class="line"></div><div class="line"><span class="function"><span class="keyword">function</span> <span class="title">bar</span>(<span class="params"></span>) </span>&#123;</div><div class="line">    <span class="keyword">var</span> value = <span class="number">2</span>;</div><div class="line">    foo();</div><div class="line">&#125;</div><div class="line"></div><div class="line">bar();</div><div class="line"></div><div class="line"><span class="comment">// 结果是 ???</span></div></pre></td></tr></table></figure>
-<p>假设JavaScript采用静态作用域，让我们分析下执行过程：</p>
-<p>执行 foo 函数，先从 foo 函数内部查找是否有局部变量 value，如果没有，就根据书写的位置，查找上面一层的代码，也就是 value 等于 1，所以结果会打印 1。</p>
-<p>假设JavaScript采用动态作用域，让我们分析下执行过程：</p>
-<p>执行 foo 函数，依然是从 foo 函数内部查找是否有局部变量 value。如果没有，就从调用函数的作用域，也就是 bar 函数内部查找 value 变量，所以结果会打印 2。</p>
-<p>前面我们已经说了，JavaScript采用的是静态作用域，所以这个例子的结果是 1。</p>
-<h2 id="动态作用域"><a href="#动态作用域" class="headerlink" title="动态作用域"></a>动态作用域</h2><p>也许你会好奇什么语言是动态作用域？</p>
-<p>bash 就是动态作用域，不信的话，把下面的脚本存成例如 scope.bash，然后进入相应的目录，用命令行执行 <code>bash ./scope.bash</code>，看看打印的值是多少。</p>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div></pre></td><td class="code"><pre><div class="line">value=1</div><div class="line"><span class="keyword">function</span> <span class="function"><span class="title">foo</span></span> () &#123;</div><div class="line">    <span class="built_in">echo</span> <span class="variable">$value</span>;</div><div class="line">&#125;</div><div class="line"><span class="keyword">function</span> <span class="function"><span class="title">bar</span></span> () &#123;</div><div class="line">    <span class="built_in">local</span> value=2;</div><div class="line">    foo;</div><div class="line">&#125;</div><div class="line">bar</div></pre></td></tr></table></figure>
-<p>这个文件也可以在<a href="https://github.com/mqyqingfeng/Blog/blob/master/demos/scope/scope.bash" target="_blank" rel="external">github博客仓库</a>中找到。</p>
-<h2 id="思考题"><a href="#思考题" class="headerlink" title="思考题"></a>思考题</h2><p>最后，让我们看一个《JavaScript权威指南》中的例子：</p>
-<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">var</span> scope = <span class="string">"global scope"</span>;</div><div class="line"><span class="function"><span class="keyword">function</span> <span class="title">checkscope</span>(<span class="params"></span>)</span>&#123;</div><div class="line">    <span class="keyword">var</span> scope = <span class="string">"local scope"</span>;</div><div class="line">    <span class="function"><span class="keyword">function</span> <span class="title">f</span>(<span class="params"></span>)</span>&#123;</div><div class="line">        <span class="keyword">return</span> scope;</div><div class="line">    &#125;</div><div class="line">    <span class="keyword">return</span> f();</div><div class="line">&#125;</div><div class="line">checkscope();</div></pre></td></tr></table></figure>
-<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">var</span> scope = <span class="string">"global scope"</span>;</div><div class="line"><span class="function"><span class="keyword">function</span> <span class="title">checkscope</span>(<span class="params"></span>)</span>&#123;</div><div class="line">    <span class="keyword">var</span> scope = <span class="string">"local scope"</span>;</div><div class="line">    <span class="function"><span class="keyword">function</span> <span class="title">f</span>(<span class="params"></span>)</span>&#123;</div><div class="line">        <span class="keyword">return</span> scope;</div><div class="line">    &#125;</div><div class="line">    <span class="keyword">return</span> f;</div><div class="line">&#125;</div><div class="line">checkscope()();</div></pre></td></tr></table></figure>
-<p>猜猜两段代码各自的执行结果是多少？</p>
-<p>这里直接告诉大家结果，两段代码都会打印：<code>local scope</code>。</p>
-<p>原因也很简单，因为JavaScript采用的是词法作用域，函数的作用域基于函数创建的位置。</p>
-<p>而引用《JavaScript权威指南》的回答就是：</p>
-<p>JavaScript 函数的执行用到了作用域链，这个作用域链是在函数定义的时候创建的。嵌套的函数 f() 定义在这个作用域链里，其中的变量 scope 一定是局部变量，不管何时何地执行函数 f()，这种绑定在执行 f() 时依然有效。</p>
-<p>但是在这里真正想让大家思考的是：</p>
-<p>虽然两段代码执行的结果一样，但是两段代码究竟有哪些不同呢？</p>
-<p>如果要回答这个问题，就要牵涉到很多的内容，词法作用域只是其中的一小部分，让我们期待下一篇文章————《JavaScript深入之执行上下文栈》。</p>
-<h2 id="下一篇文章"><a href="#下一篇文章" class="headerlink" title="下一篇文章"></a>下一篇文章</h2><p><a href="https://github.com/mqyqingfeng/Blog/issues/4" target="_blank" rel="external">JavaScript深入之执行上下文栈</a></p>
-<h2 id="深入系列"><a href="#深入系列" class="headerlink" title="深入系列"></a>深入系列</h2><p>JavaScript深入系列目录地址：<a href="https://github.com/mqyqingfeng/Blog" target="_blank" rel="external">https://github.com/mqyqingfeng/Blog</a>。</p>
-<p>JavaScript深入系列预计写十五篇左右，旨在帮大家捋顺JavaScript底层知识，重点讲解如原型、作用域、执行上下文、变量对象、this、闭包、按值传递、call、apply、bind、new、继承等难点概念。</p>
-<p>如果有错误或者不严谨的地方，请务必给予指正，十分感谢。如果喜欢或者有所启发，欢迎star，对作者也是一种鼓励。</p>
-
-      
-    </div>
-
-    <div>
-      
-        
-
-      
-    </div>
-
-    <div>
-      
-        
-
-      
-    </div>
-
-    <div>
-      
-        
-
-      
-    </div>
-
-    <footer class="post-footer">
-      
-
-      
-        
-      
-
-      
-        <div class="post-nav">
-          <div class="post-nav-next post-nav-item">
-            
-              <a href="/2017/05/27/JavaScript深入之继承的多种方式和优缺点/" rel="next" title="JavaScript深入之继承的多种方式和优缺点">
-                <i class="fa fa-chevron-left"></i> JavaScript深入之继承的多种方式和优缺点
-              </a>
-            
-          </div>
-
-          <span class="post-nav-divider"></span>
-
-          <div class="post-nav-prev post-nav-item">
-            
-              <a href="/2017/05/27/JavaScript深入之类数组对象与arguments/" rel="prev" title="JavaScript深入之类数组对象与arguments">
-                JavaScript深入之类数组对象与arguments <i class="fa fa-chevron-right"></i>
-              </a>
-            
-          </div>
-        </div>
-      
-
-      
-      
-    </footer>
-  </article>
-
-
-
-    <div class="post-spread">
-      
-    </div>
-  </div>
-
-
-          </div>
-          
-
-
-          
-  <div class="comments" id="comments">
-    
-      <div id="lv-container" data-id="city" data-uid="MTAyMC8yNzkxNi80NDkz"></div>
-    
-  </div>
-
-
-        </div>
-        
-          
-  
-  <div class="sidebar-toggle">
-    <div class="sidebar-toggle-line-wrap">
-      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
-      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
-      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
-    </div>
-  </div>
-
-  <aside id="sidebar" class="sidebar">
-    <div class="sidebar-inner">
-
-      
-
-      
-        <ul class="sidebar-nav motion-element">
-          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap" >
-            文章目录
-          </li>
-          <li class="sidebar-nav-overview" data-target="site-overview">
-            站点概览
-          </li>
-        </ul>
-      
-
-      <section class="site-overview sidebar-panel">
-        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
-          <img class="site-author-image" itemprop="image"
-               src="/images/html5.jpg"
-               alt="Bosn" />
-          <p class="site-author-name" itemprop="name">Bosn</p>
-           
-              <p class="site-description motion-element" itemprop="description">Keep It Simple, Stupid.</p>
-          
-        </div>
-        <nav class="site-state motion-element">
-
-          
-            <div class="site-state-item site-state-posts">
-              <a href="/archives">
-                <span class="site-state-item-count">17</span>
-                <span class="site-state-item-name">日志</span>
-              </a>
-            </div>
-          
-
-          
-
-          
-
-        </nav>
-
-        
-
-        <div class="links-of-author motion-element">
-          
-            
-              <span class="links-of-author-item">
-                <a href="https://github.com/your-user-name" target="_blank" title="GitHub">
-                  
-                    <i class="fa fa-fw fa-github"></i>
-                  
-                  GitHub
-                </a>
-              </span>
-            
-              <span class="links-of-author-item">
-                <a href="https://twitter.com/your-user-name" target="_blank" title="Twitter">
-                  
-                    <i class="fa fa-fw fa-twitter"></i>
-                  
-                  Twitter
-                </a>
-              </span>
-            
-              <span class="links-of-author-item">
-                <a href="http://weibo.com/your-user-name" target="_blank" title="微博">
-                  
-                    <i class="fa fa-fw fa-globe"></i>
-                  
-                  微博
-                </a>
-              </span>
-            
-              <span class="links-of-author-item">
-                <a href="http://douban.com/people/your-user-name" target="_blank" title="豆瓣">
-                  
-                    <i class="fa fa-fw fa-globe"></i>
-                  
-                  豆瓣
-                </a>
-              </span>
-            
-              <span class="links-of-author-item">
-                <a href="http://www.zhihu.com/people/your-user-name" target="_blank" title="知乎">
-                  
-                    <i class="fa fa-fw fa-globe"></i>
-                  
-                  知乎
-                </a>
-              </span>
-            
-          
-        </div>
-
-        
-        
-
-        
-        
-          <div class="links-of-blogroll motion-element links-of-blogroll-inline">
-            <div class="links-of-blogroll-title">
-              <i class="fa  fa-fw fa-globe"></i>
-              Links
-            </div>
-            <ul class="links-of-blogroll-list">
-              
-                <li class="links-of-blogroll-item">
-                  <a href="http://xiaolai.co/search" title="xiaolai" target="_blank">xiaolai</a>
-                </li>
-              
-                <li class="links-of-blogroll-item">
-                  <a href="http://www.zhangxinxu.com/" title="ZhangXinXu" target="_blank">ZhangXinXu</a>
-                </li>
-              
-            </ul>
-          </div>
-        
-
-        
-
-
-      </section>
-
-      
-      <!--noindex-->
-        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
-          <div class="post-toc">
-
-            
-              
-            
-
-            
-              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#作用域"><span class="nav-number">1.</span> <span class="nav-text">作用域</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#静态作用域与动态作用域"><span class="nav-number">2.</span> <span class="nav-text">静态作用域与动态作用域</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#动态作用域"><span class="nav-number">3.</span> <span class="nav-text">动态作用域</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#思考题"><span class="nav-number">4.</span> <span class="nav-text">思考题</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#下一篇文章"><span class="nav-number">5.</span> <span class="nav-text">下一篇文章</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#深入系列"><span class="nav-number">6.</span> <span class="nav-text">深入系列</span></a></li></ol></div>
-            
-
-          </div>
-        </section>
-      <!--/noindex-->
-      
-
-      
-
-    </div>
-  </aside>
-
-
-        
-      </div>
-    </main>
-
-    <footer id="footer" class="footer">
-      <div class="footer-inner">
-        <div class="copyright" >
-  
-  &copy; 
-  <span itemprop="copyrightYear">2017</span>
-  <span class="with-love">
-    <i class="fa fa-heart"></i>
-  </span>
-  <span class="author" itemprop="copyrightHolder">Bosn</span>
-</div>
-
-
-<div class="powered-by">
-  由 <a class="theme-link" href="https://hexo.io">Hexo</a> 强力驱动
-</div>
-
-<div class="theme-info">
-  主题 -
-  <a class="theme-link" href="https://github.com/iissnan/hexo-theme-next">
-    NexT.Pisces
-  </a>
-</div>
-
-
-        
-
-        
-      </div>
-    </footer>
-
-    
-      <div class="back-to-top">
-        <i class="fa fa-arrow-up"></i>
-        
-      </div>
-    
-
-  </div>
-
-  
-
-<script type="text/javascript">
-  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
-    window.Promise = null;
+  <title>niupi</title>
+  <style type="text/css">
+    /* Layout */
+body {
+  margin: 0;
+  background-color: black;
+  counter-reset: points;
+}
+
+.screen {
+  position: relative;
+  margin: 0 auto;
+  max-width: 100vw;
+  width: 75vh;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Sky */
+.sky {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  pointer-events: none;
+}
+
+.sky > div {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+}
+
+.sky > div::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  display: block;
+  height: 1000vh;
+}
+
+.sky > div + div {
+  animation: opacity 30s linear infinite forwards paused;
+}
+
+/* All gradients except last are from https://uigradients.com/ */
+.sky > div::before {
+  background: linear-gradient(
+    #f12711,
+    #f5af19 10%,
+    #91eae4 11%,
+    #86a8e7,
+    #7f7fd5 21%,
+    #f64f59 22%,
+    #c471ed,
+    #12c2e9 32%,
+    #f7797d 33%,
+    #fbd786,
+    #c6ffdd 43%,
+    #8a2387 44%,
+    #e94057,
+    #f27121 54%,
+    #3a1c71 55%,
+    #d76d77,
+    #fdbb2d 65%,
+    #22c1c3 66%,
+    #fdbb2d 76%,
+    #1a2a6c 77%,
+    #b21f1f,
+    #fdbb2d 87%
+  );
+  animation: sky 240s steps(8, end) infinite forwards paused;
+}
+
+.sky > div + div::before {
+  background: linear-gradient(
+    #ff0080,
+    #ff8c00,
+    #40e0d0 10%,
+    #1d2671 11%,
+    #c33764 21%,
+    #78ffd6 22%,
+    #a8ff78 32%,
+    #4b1248 33%,
+    #f0c27b 43%,
+    #2980b9 44%,
+    #6dd5fa,
+    #fff 54%,
+    #03001e 55%,
+    #7303c0,
+    #ec38bc,
+    #fdeff9 65%,
+    #56ccf2 66%,
+    #2f80ed 76%,
+    #0c0510 77%,
+    #160b3e,
+    #5f4282,
+    #cecc99 87%
+  );
+  animation: sky 240s steps(8, end) -15s infinite forwards paused;
+}
+
+/* Inputs and Last Label */
+input,
+.last {
+  z-index: 1;
+  position: absolute;
+  display: none;
+  width: 300vh;
+  height: 300vh;
+  opacity: 0;
+  cursor: pointer;
+  pointer-events: auto;
+  transform: translate(-150vh, -150vh);
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#last {
+  display: initial;
+  pointer-events: none;
+}
+
+input:checked,
+#last:checked {
+  display: none !important;
+}
+
+/* Base */
+.base {
+  position: relative;
+  left: calc(50% - 15vh);
+  top: 50vh;
+  width: 30vh;
+  height: 30vh;
+  background-color: red;
+  pointer-events: none;
+  transform: rotateX(45deg) rotateZ(45deg);
+  transform-style: preserve-3d;
+  transition: transform 0.5s ease-in-out;
+}
+
+/* Base Sides */
+.base::before,
+.base::after {
+  content: "";
+  z-index: -1;
+  position: absolute;
+  display: block;
+}
+
+.base::before {
+  right: 0;
+  width: 50vh;
+  height: 100%;
+  background: linear-gradient(to left, #d00, rgba(221, 0, 0, 0));
+  transform: rotateY(-90deg);
+  transform-origin: right;
+}
+
+.base::after {
+  bottom: 0;
+  width: 100%;
+  height: 50vh;
+  background: linear-gradient(to top, #e00, rgba(238, 0, 0, 0));
+  transform: rotateX(90deg);
+  transform-origin: bottom;
+}
+
+/* Containers */
+.container {
+  position: absolute;
+  display: flex;
+  transform-style: preserve-3d;
+}
+
+.container.horizontal {
+  left: -45vh;
+  flex-direction: row;
+  width: calc(90vh + 100%);
+  height: 100%;
+}
+
+.container.vertical {
+  top: -45vh;
+  flex-direction: column;
+  width: 100%;
+  height: calc(90vh + 100%);
+}
+
+/* Spacers */
+.container::before,
+.container::after {
+  content: "";
+}
+
+.container.horizontal::before,
+.container.horizontal::after {
+  max-width: calc(100% - 45vh);
+  min-width: 45vh;
+  height: 100%;
+}
+
+.container.vertical::before,
+.container.vertical::after {
+  width: 100%;
+  max-height: calc(100% - 45vh);
+  min-height: 45vh;
+}
+
+/* Blocks */
+.block {
+  position: relative;
+  visibility: hidden;
+  flex-grow: 1;
+  background-color: currentColor;
+  transform: translateZ(6vh);
+  transform-style: preserve-3d;
+}
+
+.block.horizontal {
+  height: 100%;
+}
+
+.block.vertical {
+  width: 100%;
+}
+
+.block.floating {
+  position: absolute;
+  display: none;
+  visibility: visible;
+}
+
+.block.floating.horizontal {
+  width: calc(100% - 90vh);
+  animation: left 2s linear alternate infinite both;
+}
+
+.block.floating.vertical {
+  height: calc(100% - 90vh);
+  animation: top 2s linear alternate infinite both;
+}
+
+/* Block Sides */
+.block::before,
+.block::after {
+  content: "";
+  z-index: -1;
+  position: absolute;
+  display: block;
+  background-color: currentColor;
+}
+
+.block::before {
+  right: 0;
+  width: 6vh;
+  height: 100%;
+  box-shadow: inset -6vh 0 rgba(0, 0, 0, 0.2);
+  transform: rotateY(-90deg);
+  transform-origin: right;
+}
+
+.block::after {
+  bottom: 0;
+  width: 100%;
+  height: 6vh;
+  box-shadow: inset 0 -6vh rgba(0, 0, 0, 0.1);
+  transform: rotateX(90deg);
+  transform-origin: bottom;
+}
+
+/* End Labels */
+.end {
+  position: absolute;
+  left: -200vh;
+  top: -300vh;
+  visibility: visible;
+  max-width: 400vh;
+  max-height: 600vh;
+  pointer-events: auto;
+  cursor: pointer;
+  transform: rotateZ(-45deg) rotateX(-45deg) translateZ(100vh);
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.end.horizontal {
+  width: calc(400vh - 100000%);
+  height: 600vh;
+}
+
+.end.vertical {
+  width: 400vh;
+  height: calc(600vh - 100000%);
+}
+
+/* Points */
+.points {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  display: none;
+  text-align: center;
+  color: white;
+  font-family: "Helvetica", "Roboto", "Segoe UI", "Arial", sans-serif;
+  font-size: 9vh;
+  font-weight: lighter;
+  pointer-events: none;
+}
+
+.points::before {
+  content: "YOU'VE REACHED THE TOP!";
+  display: block;
+  margin: 4vh auto;
+  font-size: 4vh;
+  opacity: 0;
+  transition: opacity 0.25s;
+}
+
+.points::after {
+  content: counter(points);
+  display: block;
+}
+
+/* Start Label */
+.start {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  padding: 15vh 0;
+  text-align: center;
+  color: transparent;
+  text-shadow: 0 0 0 white;
+  font-family: "Helvetica", "Roboto", "Segoe UI", "Arial", sans-serif;
+  font-size: 9vh;
+  font-weight: lighter;
+  cursor: pointer;
+  transition: opacity 0.25s;
+  animation: start 0.75s linear;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.start::before {
+  content: "";
+  position: absolute;
+  left: calc(50% - 3vh);
+  top: 59.5vh;
+  display: block;
+  border-top: 5vh solid transparent;
+  border-bottom: 5vh solid transparent;
+  border-left: 8.5vh solid white;
+}
+
+.start::after {
+  content: "";
+  position: absolute;
+  left: calc(50% - 10vh);
+  top: 54.5vh;
+  display: block;
+  box-sizing: border-box;
+  border: solid 2vh white;
+  border-radius: 50%;
+  width: 20vh;
+  height: 20vh;
+}
+
+/* Restart Button */
+button {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  border: none;
+  padding-top: 80vh;
+  width: 100%;
+  color: white;
+  background: transparent;
+  opacity: 0;
+  pointer-events: none;
+  font-family: "Helvetica", "Roboto", "Segoe UI", "Arial", sans-serif;
+  font-size: 4vh;
+  font-weight: lighter;
+  cursor: pointer;
+  transition: opacity 0.25s;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Keyframes */
+@keyframes opacity {
+  0% {
+    opacity: 1;
   }
-</script>
-
-
-
-
-
-
-
-
-
-  
-
-
-
-
-
-
-  
-  <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
-
-  
-  <script type="text/javascript" src="/lib/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
-
-  
-  <script type="text/javascript" src="/lib/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
-
-  
-  <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
-
-  
-  <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
-
-  
-  <script type="text/javascript" src="/lib/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
-
-
-  
-
-
-  <script type="text/javascript" src="/js/src/utils.js?v=5.1.0"></script>
-
-  <script type="text/javascript" src="/js/src/motion.js?v=5.1.0"></script>
-
-
-
-  
-  
-
-
-  <script type="text/javascript" src="/js/src/affix.js?v=5.1.0"></script>
-
-  <script type="text/javascript" src="/js/src/schemes/pisces.js?v=5.1.0"></script>
-
-
-
-  
-  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.1.0"></script>
-<script type="text/javascript" src="/js/src/post-details.js?v=5.1.0"></script>
-
-
-
-  
-
-
-  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.0"></script>
-
-
-
-  
-
-
-  
-
-
-
-
-	
-
-
-
-
-
-  
-
-
-
-
-
-  
-
-
-
-
-
-  
-    <script type="text/javascript">
-      (function(d, s) {
-        var j, e = d.getElementsByTagName(s)[0];
-        if (typeof LivereTower === 'function') { return; }
-        j = d.createElement(s);
-        j.src = 'https://cdn-city.livere.com/js/embed.dist.js';
-        j.async = true;
-        e.parentNode.insertBefore(j, e);
-      })(document, 'script');
-    </script>
-  
-
-
-
-
-
-
-  
-
-
-
-
-
-  
-
-  
-
-  
-
-  
-
+  25% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+  75% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+@keyframes sky {
+  from {
+    transform: none;
+  }
+  to {
+    transform: translateY(-880vh);
+  }
+}
+
+@keyframes width {
+  from {
+    width: 0;
+  }
+  to {
+    width: 90vh;
+  }
+}
+
+@keyframes height {
+  from {
+    height: 0;
+  }
+  to {
+    height: 90vh;
+  }
+}
+
+@keyframes left {
+  from {
+    left: 0;
+  }
+  to {
+    left: 90vh;
+  }
+}
+
+@keyframes top {
+  from {
+    top: 0;
+  }
+  to {
+    top: 90vh;
+  }
+}
+
+@keyframes color {
+  0% {
+    color: #f00;
+  }
+  19% {
+    color: #ff0;
+  }
+  31% {
+    color: #0f0;
+  }
+  43% {
+    color: #0ff;
+  }
+  62% {
+    color: #00f;
+  }
+  81% {
+    color: #f0f;
+  }
+  100% {
+    color: #f00;
+  }
+}
+
+@keyframes start {
+  from {
+    text-shadow: 0 0 1vh white, 2vh -2vh 1vh white, 2vh 2vh 1vh white,
+      -2vh 2vh 1vh white, -2vh -2vh 1vh white;
+    opacity: 0;
+  }
+  to {
+    text-shadow: 0 0 0 white;
+    opacity: 1;
+  }
+}
+
+/* Sky: start changing */
+#start:checked ~ .sky > div + div,
+#start:checked ~ .sky > div::before {
+  animation-play-state: running;
+}
+
+/* Sky: stop changing */
+#end:checked ~ .sky > div + div,
+#end:checked ~ .sky > div::before,
+#last:checked ~ .sky > div + div,
+#last:checked ~ .sky > div::before {
+  animation-play-state: paused;
+}
+
+/* Base: start movement */
+#start:checked ~ .base {
+  transform: translateY(200vh) rotateX(45deg) rotateZ(45deg);
+  transition-duration: 60s;
+  transition-timing-function: linear;
+}
+
+/* Base: stop movement */
+#end:checked ~ .base,
+#last:checked ~ .base {
+  transform: translateY(25vh) rotateX(45deg) rotateZ(45deg)
+    scale3d(0.3, 0.3, 0.3);
+  transition-duration: 1s;
+  transition-timing-function: ease-in-out;
+}
+
+/* Inputs and Last Label: display current */
+#start:checked ~ .base > input,
+input:checked + .container > .block > input,
+input:checked + .container > .block > .last {
+  display: block;
+}
+
+/* Containers: start color rotation */
+#start:checked ~ .base .container {
+  animation: color 60s linear alternate infinite both;
+}
+
+/* Containers: stop color rotation of current */
+#start:checked ~ .base > .container,
+input:checked + .container > .block > .container {
+  animation-play-state: paused !important;
+}
+
+/* Spacers: start sizing of current */
+#start:checked ~ .base > .container.horizontal::before,
+input:checked + .container > .block > .container.horizontal::before {
+  animation: width 2s linear infinite alternate both running;
+}
+
+#start:checked ~ .base > .container.horizontal::after,
+input:checked + .container > .block > .container.horizontal::after {
+  animation: width 2s linear infinite alternate-reverse both running;
+}
+
+#start:checked ~ .base > .container.vertical::before,
+input:checked + .container > .block > .container.vertical::before {
+  animation: height 2s linear infinite alternate both running;
+}
+
+#start:checked ~ .base > .container.vertical::after,
+input:checked + .container > .block > .container.vertical::after {
+  animation: height 2s linear infinite alternate-reverse both running;
+}
+
+/* Spacers: stop sizing of current */
+#end:active ~ .base .container::before,
+#end:active ~ .base .container::after,
+#end:checked ~ .base .container::before,
+#end:checked ~ .base .container::after,
+#last:active ~ .base .container::before,
+#last:active ~ .base .container::after,
+#last:checked ~ .base .container::before,
+#last:checked ~ .base .container::after,
+input:active + .container::before,
+input:active + .container::after,
+input:checked + .container::before,
+input:checked + .container::after {
+  animation-play-state: paused !important;
+}
+
+/* Floating Blocks: display current */
+#start:checked ~ .base > .container > .floating,
+input:checked + .container > .block > .container > .floating {
+  display: block;
+}
+
+/* Floating Blocks: stop movement of current */
+#end:active ~ .base .floating,
+#last:active ~ .base .floating,
+input:active + .container > .floating {
+  animation-play-state: paused;
+}
+
+/* Floating Blocks: stop movement of current then fadeout */
+#end:checked ~ .base .floating,
+#last:checked ~ .base .floating,
+input:checked + .container > .floating {
+  visibility: hidden;
+  color: transparent;
+  transition: color 0.5s, background-color 0.5s, visibility 0s 0.5s;
+  animation-play-state: paused;
+}
+
+/* Increment Points */
+#last:checked ~ .base .floating,
+input:checked + .container > .floating {
+  counter-increment: points 1;
+}
+
+/* Floating Block Sides: stop sizing of current then fadeout */
+#end:checked ~ .base .floating::before,
+#end:checked ~ .base .floating::after,
+#last:checked ~ .base .floating::before,
+#last:checked ~ .base .floating::after,
+input:checked + .container > .floating::before,
+input:checked + .container > .floating::after {
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.5s, visibility 0s 0.5s;
+  animation-play-state: paused;
+}
+
+/* Blocks: show current  */
+input:checked + .container > .floating + .block,
+#last:checked ~ .base .last + .container > .floating + .block {
+  visibility: visible;
+}
+
+/* Points: show only positive */
+.screen:valid .points {
+  display: block;
+}
+
+/* Points: top reached */
+#last:checked ~ .points::before {
+  opacity: 1;
+}
+
+/* Start Label: hide after started */
+#start:checked ~ .start {
+  pointer-events: none;
+  opacity: 0;
+  animation: none;
+}
+
+/* Restart Button: show on end */
+#end:checked ~ button,
+#last:checked ~ button {
+  pointer-events: auto;
+  opacity: 1;
+}
+  </style>
+</head>
+<body>
+  <form class="screen" novalidate>
+  <input id="start" type="checkbox" tabindex="-1">
+  <input id="end" type="checkbox" tabindex="-1">
+  <input id="last" type="checkbox" tabindex="-1">
+  <div class="sky">
+    <div></div>
+    <div></div>
+  </div>
+  <div class="base">
+    <input type="checkbox" tabindex="-1" required>
+    <div class="container horizontal">
+      <div class="block floating horizontal"></div>
+      <div class="block horizontal">
+        <input type="checkbox" tabindex="-1">
+        <div class="container vertical">
+          <div class="block floating vertical"></div>
+          <div class="block vertical">
+            <input type="checkbox" tabindex="-1">
+            <div class="container horizontal">
+              <div class="block floating horizontal"></div>
+              <div class="block horizontal">
+                <input type="checkbox" tabindex="-1">
+                <div class="container vertical">
+                  <div class="block floating vertical"></div>
+                  <div class="block vertical">
+                    <input type="checkbox" tabindex="-1">
+                    <div class="container horizontal">
+                      <div class="block floating horizontal"></div>
+                      <div class="block horizontal">
+                        <input type="checkbox" tabindex="-1">
+                        <div class="container vertical">
+                          <div class="block floating vertical"></div>
+                          <div class="block vertical">
+                            <input type="checkbox" tabindex="-1">
+                            <div class="container horizontal">
+                              <div class="block floating horizontal"></div>
+                              <div class="block horizontal">
+                                <input type="checkbox" tabindex="-1">
+                                <div class="container vertical">
+                                  <div class="block floating vertical"></div>
+                                  <div class="block vertical">
+                                    <input type="checkbox" tabindex="-1">
+                                    <div class="container horizontal">
+                                      <div class="block floating horizontal"></div>
+                                      <div class="block horizontal">
+                                        <input type="checkbox" tabindex="-1">
+                                        <div class="container vertical">
+                                          <div class="block floating vertical"></div>
+                                          <div class="block vertical">
+                                            <input type="checkbox" tabindex="-1">
+                                            <div class="container horizontal">
+                                              <div class="block floating horizontal"></div>
+                                              <div class="block horizontal">
+                                                <input type="checkbox" tabindex="-1">
+                                                <div class="container vertical">
+                                                  <div class="block floating vertical"></div>
+                                                  <div class="block vertical">
+                                                    <input type="checkbox" tabindex="-1">
+                                                    <div class="container horizontal">
+                                                      <div class="block floating horizontal"></div>
+                                                      <div class="block horizontal">
+                                                        <input type="checkbox" tabindex="-1">
+                                                        <div class="container vertical">
+                                                          <div class="block floating vertical"></div>
+                                                          <div class="block vertical">
+                                                            <input type="checkbox" tabindex="-1">
+                                                            <div class="container horizontal">
+                                                              <div class="block floating horizontal"></div>
+                                                              <div class="block horizontal">
+                                                                <input type="checkbox" tabindex="-1">
+                                                                <div class="container vertical">
+                                                                  <div class="block floating vertical"></div>
+                                                                  <div class="block vertical">
+                                                                    <input type="checkbox" tabindex="-1">
+                                                                    <div class="container horizontal">
+                                                                      <div class="block floating horizontal"></div>
+                                                                      <div class="block horizontal">
+                                                                        <input type="checkbox" tabindex="-1">
+                                                                        <div class="container vertical">
+                                                                          <div class="block floating vertical"></div>
+                                                                          <div class="block vertical">
+                                                                            <input type="checkbox" tabindex="-1">
+                                                                            <div class="container horizontal">
+                                                                              <div class="block floating horizontal"></div>
+                                                                              <div class="block horizontal">
+                                                                                <input type="checkbox" tabindex="-1">
+                                                                                <div class="container vertical">
+                                                                                  <div class="block floating vertical"></div>
+                                                                                  <div class="block vertical">
+                                                                                    <input type="checkbox" tabindex="-1">
+                                                                                    <div class="container horizontal">
+                                                                                      <div class="block floating horizontal"></div>
+                                                                                      <div class="block horizontal">
+                                                                                        <input type="checkbox" tabindex="-1">
+                                                                                        <div class="container vertical">
+                                                                                          <div class="block floating vertical"></div>
+                                                                                          <div class="block vertical">
+                                                                                            <input type="checkbox" tabindex="-1">
+                                                                                            <div class="container horizontal">
+                                                                                              <div class="block floating horizontal"></div>
+                                                                                              <div class="block horizontal">
+                                                                                                <input type="checkbox" tabindex="-1">
+                                                                                                <div class="container vertical">
+                                                                                                  <div class="block floating vertical"></div>
+                                                                                                  <div class="block vertical">
+                                                                                                    <input type="checkbox" tabindex="-1">
+                                                                                                    <div class="container horizontal">
+                                                                                                      <div class="block floating horizontal"></div>
+                                                                                                      <div class="block horizontal">
+                                                                                                        <input type="checkbox" tabindex="-1">
+                                                                                                        <div class="container vertical">
+                                                                                                          <div class="block floating vertical"></div>
+                                                                                                          <div class="block vertical">
+                                                                                                            <input type="checkbox" tabindex="-1">
+                                                                                                            <div class="container horizontal">
+                                                                                                              <div class="block floating horizontal"></div>
+                                                                                                              <div class="block horizontal">
+                                                                                                                <input type="checkbox" tabindex="-1">
+                                                                                                                <div class="container vertical">
+                                                                                                                  <div class="block floating vertical"></div>
+                                                                                                                  <div class="block vertical">
+                                                                                                                    <input type="checkbox" tabindex="-1">
+                                                                                                                    <div class="container horizontal">
+                                                                                                                      <div class="block floating horizontal"></div>
+                                                                                                                      <div class="block horizontal">
+                                                                                                                        <input type="checkbox" tabindex="-1">
+                                                                                                                        <div class="container vertical">
+                                                                                                                          <div class="block floating vertical"></div>
+                                                                                                                          <div class="block vertical">
+                                                                                                                            <input type="checkbox" tabindex="-1">
+                                                                                                                            <div class="container horizontal">
+                                                                                                                              <div class="block floating horizontal"></div>
+                                                                                                                              <div class="block horizontal">
+                                                                                                                                <input type="checkbox" tabindex="-1">
+                                                                                                                                <div class="container vertical">
+                                                                                                                                  <div class="block floating vertical"></div>
+                                                                                                                                  <div class="block vertical">
+                                                                                                                                    <input type="checkbox" tabindex="-1">
+                                                                                                                                    <div class="container horizontal">
+                                                                                                                                      <div class="block floating horizontal"></div>
+                                                                                                                                      <div class="block horizontal">
+                                                                                                                                        <input type="checkbox" tabindex="-1">
+                                                                                                                                        <div class="container vertical">
+                                                                                                                                          <div class="block floating vertical"></div>
+                                                                                                                                          <div class="block vertical">
+                                                                                                                                            <input type="checkbox" tabindex="-1">
+                                                                                                                                            <div class="container horizontal">
+                                                                                                                                              <div class="block floating horizontal"></div>
+                                                                                                                                              <div class="block horizontal">
+                                                                                                                                                <input type="checkbox" tabindex="-1">
+                                                                                                                                                <div class="container vertical">
+                                                                                                                                                  <div class="block floating vertical"></div>
+                                                                                                                                                  <div class="block vertical">
+                                                                                                                                                    <input type="checkbox" tabindex="-1">
+                                                                                                                                                    <div class="container horizontal">
+                                                                                                                                                      <div class="block floating horizontal"></div>
+                                                                                                                                                      <div class="block horizontal">
+                                                                                                                                                        <input type="checkbox" tabindex="-1">
+                                                                                                                                                        <div class="container vertical">
+                                                                                                                                                          <div class="block floating vertical"></div>
+                                                                                                                                                          <div class="block vertical">
+                                                                                                                                                            <input type="checkbox" tabindex="-1">
+                                                                                                                                                            <div class="container horizontal">
+                                                                                                                                                              <div class="block floating horizontal"></div>
+                                                                                                                                                              <div class="block horizontal">
+                                                                                                                                                                <input type="checkbox" tabindex="-1">
+                                                                                                                                                                <div class="container vertical">
+                                                                                                                                                                  <div class="block floating vertical"></div>
+                                                                                                                                                                  <div class="block vertical">
+                                                                                                                                                                    <input type="checkbox" tabindex="-1">
+                                                                                                                                                                    <div class="container horizontal">
+                                                                                                                                                                      <div class="block floating horizontal"></div>
+                                                                                                                                                                      <div class="block horizontal">
+                                                                                                                                                                        <input type="checkbox" tabindex="-1">
+                                                                                                                                                                        <div class="container vertical">
+                                                                                                                                                                          <div class="block floating vertical"></div>
+                                                                                                                                                                          <div class="block vertical">
+                                                                                                                                                                            <input type="checkbox" tabindex="-1">
+                                                                                                                                                                            <div class="container horizontal">
+                                                                                                                                                                              <div class="block floating horizontal"></div>
+                                                                                                                                                                              <div class="block horizontal">
+                                                                                                                                                                                <input type="checkbox" tabindex="-1">
+                                                                                                                                                                                <div class="container vertical">
+                                                                                                                                                                                  <div class="block floating vertical"></div>
+                                                                                                                                                                                  <div class="block vertical">
+                                                                                                                                                                                    <input type="checkbox" tabindex="-1">
+                                                                                                                                                                                    <div class="container horizontal">
+                                                                                                                                                                                      <div class="block floating horizontal"></div>
+                                                                                                                                                                                      <div class="block horizontal">
+                                                                                                                                                                                        <input type="checkbox" tabindex="-1">
+                                                                                                                                                                                        <div class="container vertical">
+                                                                                                                                                                                          <div class="block floating vertical"></div>
+                                                                                                                                                                                          <div class="block vertical">
+                                                                                                                                                                                            <input type="checkbox" tabindex="-1">
+                                                                                                                                                                                            <div class="container horizontal">
+                                                                                                                                                                                              <div class="block floating horizontal"></div>
+                                                                                                                                                                                              <div class="block horizontal">
+                                                                                                                                                                                                <input type="checkbox" tabindex="-1">
+                                                                                                                                                                                                <div class="container vertical">
+                                                                                                                                                                                                  <div class="block floating vertical"></div>
+                                                                                                                                                                                                  <div class="block vertical">
+                                                                                                                                                                                                    <input type="checkbox" tabindex="-1">
+                                                                                                                                                                                                    <div class="container horizontal">
+                                                                                                                                                                                                      <div class="block floating horizontal"></div>
+                                                                                                                                                                                                      <div class="block horizontal">
+                                                                                                                                                                                                        <label class="last" for="last" tabindex="-1"></label>
+                                                                                                                                                                                                        <div class="container vertical">
+                                                                                                                                                                                                          <div class="block floating vertical"></div>
+                                                                                                                                                                                                          <div class="block vertical">
+                                                                                                                                                                                                            <label class="end horizontal" for="end"></label>
+                                                                                                                                                                                                            <label class="end vertical" for="end"></label>
+                                                                                                                                                                                                          </div>
+                                                                                                                                                                                                        </div>
+                                                                                                                                                                                                      </div>
+                                                                                                                                                                                                    </div>
+                                                                                                                                                                                                  </div>
+                                                                                                                                                                                                </div>
+                                                                                                                                                                                              </div>
+                                                                                                                                                                                            </div>
+                                                                                                                                                                                          </div>
+                                                                                                                                                                                        </div>
+                                                                                                                                                                                      </div>
+                                                                                                                                                                                    </div>
+                                                                                                                                                                                  </div>
+                                                                                                                                                                                </div>
+                                                                                                                                                                              </div>
+                                                                                                                                                                            </div>
+                                                                                                                                                                          </div>
+                                                                                                                                                                        </div>
+                                                                                                                                                                      </div>
+                                                                                                                                                                    </div>
+                                                                                                                                                                  </div>
+                                                                                                                                                                </div>
+                                                                                                                                                              </div>
+                                                                                                                                                            </div>
+                                                                                                                                                          </div>
+                                                                                                                                                        </div>
+                                                                                                                                                      </div>
+                                                                                                                                                    </div>
+                                                                                                                                                  </div>
+                                                                                                                                                </div>
+                                                                                                                                              </div>
+                                                                                                                                            </div>
+                                                                                                                                          </div>
+                                                                                                                                        </div>
+                                                                                                                                      </div>
+                                                                                                                                    </div>
+                                                                                                                                  </div>
+                                                                                                                                </div>
+                                                                                                                              </div>
+                                                                                                                            </div>
+                                                                                                                          </div>
+                                                                                                                        </div>
+                                                                                                                      </div>
+                                                                                                                    </div>
+                                                                                                                  </div>
+                                                                                                                </div>
+                                                                                                              </div>
+                                                                                                            </div>
+                                                                                                          </div>
+                                                                                                        </div>
+                                                                                                      </div>
+                                                                                                    </div>
+                                                                                                  </div>
+                                                                                                </div>
+                                                                                              </div>
+                                                                                            </div>
+                                                                                          </div>
+                                                                                        </div>
+                                                                                      </div>
+                                                                                    </div>
+                                                                                  </div>
+                                                                                </div>
+                                                                              </div>
+                                                                            </div>
+                                                                          </div>
+                                                                        </div>
+                                                                      </div>
+                                                                    </div>
+                                                                  </div>
+                                                                </div>
+                                                              </div>
+                                                            </div>
+                                                          </div>
+                                                        </div>
+                                                      </div>
+                                                    </div>
+                                                  </div>
+                                                </div>
+                                              </div>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="points"></div>
+  <label class="start" for="start" tabindex="-1">
+        PURE CSS<br>STACK
+    </label>
+  <button type="reset" tabindex="-1">
+        CLICK OR TAP<br>
+        TO RESTART
+    </button>
+</form>
 </body>
 </html>
